@@ -18,7 +18,7 @@ pub enum RelativePathError {
 /// but without the platform-specific behavior. It does not support relative components like `..`, nor absolute paths,
 /// and always uses `/` as the separator. It is always normalized, and always transformable to UTF-8.  Non-UTF-8 paths
 /// are not supported for now.
-#[derive(Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct RelativePath(String);
 
@@ -62,6 +62,18 @@ impl RelativePath {
 
     fn normalize_separators(path: &str) -> String {
         path.replace("\\", "/")
+    }
+}
+
+impl Ord for RelativePath {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.components().cmp(other.components())
+    }
+}
+
+impl PartialOrd for RelativePath {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -181,5 +193,34 @@ mod tests {
             None,
             "No components should be present for empty path"
         );
+    }
+
+    #[test]
+    fn test_ordering() {
+        // Standard tests
+        let mut paths = vec!["a/b/c/d", "a/b/c", "a/b/d", "a/b/c"];
+
+        paths.sort();
+        assert_eq!(
+            paths,
+            vec!["a/b/c", "a/b/c", "a/b/c/d", "a/b/d",],
+            "Paths should be sorted correctly"
+        );
+
+        // These will not order correctly based on a simple string comparison since characters like
+        // [!,#%] are less than the directory separator '/'
+
+        // By lexicographical component comparison, 'b!/' comes before 'b/' but for our purposes it should come after
+        let path1_special_str = "a/b!/c";
+        let path2_special_str = "a/b/c";
+        assert!(
+            path1_special_str < path2_special_str,
+            "'a/b!/c' should be less than 'a/b/c' by lexicographical comparison"
+        );
+
+        // Ensure that our RelativePath ordering handles this correctly
+        let path_special1 = RelativePath::new(path1_special_str).unwrap();
+        let path_special2 = RelativePath::new(path2_special_str).unwrap();
+        assert!(path_special1 > path_special2, "'a/b!/c' should be greater than 'a/b/c'");
     }
 }

@@ -69,10 +69,8 @@ impl WorkspaceApi<MockWorkspaceError> for MockWorkspaceApi {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        super::model::{DirectoryEntry, FileMetadata},
-        *,
-    };
+    use super::*;
+    use crate::v1::model::*;
 
     #[tokio::test]
     async fn test_fetch_directory() {
@@ -87,20 +85,18 @@ mod tests {
             DirectoryEntryType::File {
                 metadata: FileMetadata::new(0, 0),
                 change_state: Default::default(),
+                conflict_state: Default::default(),
             },
-            Default::default(),
         ));
 
         sub_dir.push_entry(DirectoryEntry::new(
             "nested".into(),
             DirectoryEntryType::Directory(Some(sub_sub_dir)),
-            Default::default(),
         ));
 
         root.push_entry(DirectoryEntry::new(
             "subdir".into(),
             DirectoryEntryType::Directory(Some(sub_dir)),
-            Default::default(),
         ));
 
         //println!("Constructed mock directory tree: {}", serde_json::to_string_pretty(&root).unwrap());

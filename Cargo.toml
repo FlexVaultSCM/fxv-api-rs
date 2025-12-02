@@ -8,11 +8,12 @@ repository = "https://github.com/FlexVaultSCM/fxv-api-rs"
 
 [features]
 default = ["mock_client", "serde"]
-mock_client = ["dep:tokio","dep:serde", "dep:rand"]
+mock_client = ["dep:tokio","dep:serde", "dep:rand", "enumset/serde"]
 serde = ["dep:serde"]
 
 [dependencies]
 thiserror = "2.0.17"
+enumset = "1.1.10"
 
 # Mock client dependencies
 serde = { version = "1.0.228", features = ["derive"], optional = true }
