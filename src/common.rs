@@ -95,7 +95,7 @@ impl RelativePath {
         }
     }
 
-    /// Returns the common ancestor of this path and another path, along with the remainder of the other path
+    /// Returns the index of the last separator in the common ancestor path
     fn common_ancestor_separator_index(&self, other: &RelativePath) -> usize {
         let mut self_iter = self.components();
         let mut other_iter = other.components();
