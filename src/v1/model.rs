@@ -79,7 +79,11 @@ impl DirectoryEntry {
         &self.info
     }
 
-    pub(crate) fn aggregate_states_into(&self, conflict_states: &mut ConflictStateSet, change_states: &mut ChangeStateSet) {
+    pub(crate) fn aggregate_states_into(
+        &self,
+        conflict_states: &mut ConflictStateSet,
+        change_states: &mut ChangeStateSet,
+    ) {
         match &self.info {
             DirectoryEntryType::File {
                 conflict_state,
@@ -145,6 +149,7 @@ impl FileMetadata {
 /// The change state of a directory entry, e.g. whether it is added, modified, deleted, or unchanged
 #[derive(Default, Debug, Hash, EnumSetType)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", enumset(serialize_repr = "list"))]
 pub enum ChangeState {
     /// The entry is unchanged from the base version
     #[default]
@@ -162,6 +167,7 @@ pub enum ChangeState {
 /// change, timestamps, etc.
 #[derive(Default, Debug, Hash, EnumSetType)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", enumset(serialize_repr = "list"))]
 pub enum ConflictState {
     /// The entry has no conflicts
     #[default]

@@ -1,5 +1,9 @@
 // == Std
-use std::{fmt::Display, iter::FusedIterator};
+use std::{
+    fmt::Display,
+    iter::FusedIterator,
+    path::{Path, PathBuf},
+};
 
 // == External crates
 #[cfg(feature = "serde")]
@@ -11,6 +15,8 @@ use thiserror::Error;
 pub enum RelativePathError {
     #[error("The provided path '{0}' is invalid as a relative path")]
     InvalidPath(String),
+    #[error("Failed to convert OS path: {0}")]
+    OsPathConversionError(PathBuf),
 }
 
 /// Newtype for a path relative to some arbitrary root.
@@ -39,6 +45,11 @@ impl RelativePath {
         Ok(RelativePath(path_string))
     }
 
+    /// Returns the string representation of the relative path
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
     /// Returns the file name of the path, if any
     pub fn file_name(&self) -> Option<&str> {
         if self.0.is_empty() {
@@ -52,7 +63,10 @@ impl RelativePath {
 
     /// Returns an iterator over the components of the relative path
     pub fn components<'a>(&'a self) -> RelativePathComponents<'a> {
-        RelativePathComponents { inner: self, index: 0 }
+        RelativePathComponents {
+            inner: &self.0,
+            index: 0,
+        }
     }
 
     /// Returns true if the relative path is empty
@@ -60,6 +74,41 @@ impl RelativePath {
         self.0.is_empty()
     }
 
+    /// Returns the common ancestor of this path and another path
+    /// For example, the common ancestor of "a/b/c/d" and "a/b/e/f" is "a/b"
+    /// The common ancestor of "a/b/c" and "d/e/f" is the empty root path
+    pub fn common_ancestor<'a>(&'a self, other: &RelativePath) -> RelativePathComponents<'a> {
+        RelativePathComponents {
+            inner: &self.0[..self.common_ancestor_separator_index(other)],
+            index: 0,
+        }
+    }
+
+    /// Returns the components iterator of this path starting at the common ancestor with another path
+    /// For example, for self of "a/b/c/d" compared with "a/b/e/f", this will return an iterator over "a/b/c/d" already
+    /// advanced to "c"
+    pub fn components_starting_at_common_ancestor<'a>(&'a self, other: &RelativePath) -> RelativePathComponents<'a> {
+        let index = self.common_ancestor_separator_index(other);
+        RelativePathComponents {
+            inner: &self.0,
+            index: index + 1,
+        }
+    }
+
+    /// Returns the common ancestor of this path and another path, along with the remainder of the other path
+    fn common_ancestor_separator_index(&self, other: &RelativePath) -> usize {
+        let mut self_iter = self.components();
+        let mut other_iter = other.components();
+
+        let mut index = 0;
+        while self_iter.next().is_some_and(|s| Some(s) == other_iter.next()) {
+            index = self_iter.index;
+        }
+
+        index.saturating_sub(1)
+    }
+
+    /// Replaces all backslashes in the path with forward slashes if they exist
     fn normalize_separators(path: &str) -> String {
         path.replace("\\", "/")
     }
@@ -77,10 +126,52 @@ impl PartialOrd for RelativePath {
     }
 }
 
+impl<'a> PartialEq<RelativePathComponents<'a>> for RelativePath {
+    fn eq(&self, other: &RelativePathComponents<'a>) -> bool {
+        self.0 == other.as_full_str()
+    }
+}
+
+impl PartialEq<str> for RelativePath {
+    fn eq(&self, other: &str) -> bool {
+        self.0 == other
+    }
+}
+
+impl TryFrom<&Path> for RelativePath {
+    type Error = RelativePathError;
+
+    fn try_from(value: &Path) -> Result<Self, Self::Error> {
+        // Convert Path to utf-8
+        if let Some(path_str) = value.to_str() {
+            RelativePath::new(path_str)
+        } else {
+            Err(RelativePathError::OsPathConversionError(value.to_path_buf()))
+        }
+    }
+}
+
 /// An iterator over the components of a RelativePath
+#[derive(Debug, Clone)]
 pub struct RelativePathComponents<'a> {
-    inner: &'a RelativePath,
+    inner: &'a str,
     index: usize,
+}
+
+impl<'a> RelativePathComponents<'a> {
+    /// Returns the full path string represented by this iterator, constant over the iterator state
+    pub fn as_full_str(&self) -> &'a str {
+        self.inner
+    }
+
+    /// Returns the accumulated path string up to (but not including) the current component
+    pub fn as_accumulated_str(&self) -> &'a str {
+        &self.inner[..self.index.saturating_sub(1)]
+    }
+
+    pub fn is_at_last_entry(&self) -> bool {
+        self.index >= self.inner.len()
+    }
 }
 
 impl<'a> Iterator for RelativePathComponents<'a> {
@@ -88,13 +179,13 @@ impl<'a> Iterator for RelativePathComponents<'a> {
 
     /// Returns the next component of the relative path, or None if there are no more components
     fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= self.inner.0.len() {
+        if self.index >= self.inner.len() {
             None
         } else {
-            let next_index = self.inner.0[self.index..]
+            let next_index = self.inner[self.index..]
                 .find('/')
-                .unwrap_or(self.inner.0.len() - self.index);
-            let component = &self.inner.0[self.index..self.index + next_index];
+                .unwrap_or(self.inner.len() - self.index);
+            let component = &self.inner[self.index..self.index + next_index];
             self.index += next_index + 1; // +1 to skip the separator
             Some(component)
         }
@@ -222,5 +313,81 @@ mod tests {
         let path_special1 = RelativePath::new(path1_special_str).unwrap();
         let path_special2 = RelativePath::new(path2_special_str).unwrap();
         assert!(path_special1 > path_special2, "'a/b!/c' should be greater than 'a/b/c'");
+    }
+
+    #[test]
+    fn test_common_ancestor() {
+        let path1 = RelativePath::new("a/b/c/d").unwrap();
+        let path2 = RelativePath::new("a/b/e/f").unwrap();
+        let common_ancestor = path1.common_ancestor(&path2);
+        assert_eq!(common_ancestor.as_full_str(), "a/b", "Common ancestor should be 'a/b'");
+
+        // Test components starting at common ancestor
+        let mut common_ancestor_split = path1.components_starting_at_common_ancestor(&path2);
+        assert_eq!(
+            common_ancestor_split.as_full_str(),
+            "a/b/c/d",
+            "Remainder path should be 'a/b/c/d'"
+        );
+        assert_eq!(
+            common_ancestor_split.as_accumulated_str(),
+            "a/b",
+            "Accumulated path should be 'a/b'"
+        );
+        assert_eq!(common_ancestor_split.next(), Some("c"), "Next component should be 'c'");
+        assert_eq!(
+            common_ancestor_split.as_accumulated_str(),
+            "a/b/c",
+            "Accumulated path should be 'a/b/c'"
+        );
+        assert_eq!(common_ancestor_split.next(), Some("d"), "Next component should be 'd'");
+        assert_eq!(
+            common_ancestor_split.as_accumulated_str(),
+            "a/b/c/d",
+            "Accumulated path should be 'a/b/c/d'"
+        );
+        assert_eq!(
+            common_ancestor_split.next(),
+            None,
+            "No more components should be present"
+        );
+
+        let path1 = RelativePath::new("a/b/c").unwrap();
+        let path2 = RelativePath::new("a/b/c/d/e").unwrap();
+        let common_ancestor = path1.common_ancestor(&path2);
+        assert_eq!(
+            common_ancestor.as_full_str(),
+            "a/b/c",
+            "Common ancestor should be 'a/b/c'"
+        );
+
+        let path1 = RelativePath::new("a/b/c").unwrap();
+        let path2 = RelativePath::new("d/e/f").unwrap();
+        let common_ancestor = path1.common_ancestor(&path2);
+        assert_eq!(
+            common_ancestor.as_full_str(),
+            "",
+            "Common ancestor should be empty string"
+        );
+    }
+
+    #[test]
+    fn test_iterator_str() {
+        let relative_path = RelativePath::new("a/b/c/d/e.txt").unwrap();
+        let mut components = relative_path.components();
+        assert_eq!(components.as_full_str(), "a/b/c/d/e.txt");
+        assert_eq!(components.as_accumulated_str(), "");
+        assert_eq!(components.next(), Some("a"));
+        assert_eq!(components.as_accumulated_str(), "a");
+        assert_eq!(components.next(), Some("b"));
+        assert_eq!(components.as_accumulated_str(), "a/b");
+        assert_eq!(components.next(), Some("c"));
+        assert_eq!(components.as_accumulated_str(), "a/b/c");
+        assert_eq!(components.next(), Some("d"));
+        assert_eq!(components.as_accumulated_str(), "a/b/c/d");
+        assert_eq!(components.next(), Some("e.txt"));
+        assert_eq!(components.as_accumulated_str(), "a/b/c/d/e.txt");
+        assert_eq!(components.next(), None);
+        assert_eq!(components.as_accumulated_str(), "a/b/c/d/e.txt");
     }
 }
