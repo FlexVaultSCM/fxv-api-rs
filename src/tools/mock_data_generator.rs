@@ -195,10 +195,12 @@ mod tests {
                 if e.metadata().unwrap().is_dir() {
                     None
                 } else {
-                    Some(e.path().strip_prefix(target_dir).unwrap().to_string_lossy().to_string())
+                    Some(e.path().strip_prefix(target_dir).unwrap().to_string_lossy().to_string().replace("\\", "/"))
                 }
             })
             .collect::<Vec<_>>();
+
+        assert!(!all_files.is_empty(), "Generated file list should not be empty");
 
         assert_eq!(
             all_files.len(),

@@ -51,6 +51,7 @@ impl Directory {
 
     pub fn push_entry(&mut self, entry: DirectoryEntry) {
         // TODO: Make sure these stay sorted and unique
+        entry.aggregate_states_into(&mut self.conflict_states, &mut self.change_states);
         self.entries.push(entry);
     }
 }
@@ -210,7 +211,7 @@ mod tests {
             RelativePath::new("").unwrap(),
             vec![
                 file1.clone(),
-                DirectoryEntry::new("subdir".into(), DirectoryEntryType::Directory(Some(sub_dir))),
+                DirectoryEntry::new("subdir".into(), DirectoryEntryType::Directory(Some(sub_dir.clone()))),
             ],
         );
 
@@ -221,5 +222,12 @@ mod tests {
         assert!(dir.conflict_states.contains(ConflictState::None));
         assert!(dir.conflict_states.contains(ConflictState::Unresolved));
         assert!(!dir.conflict_states.contains(ConflictState::Resolved));
+
+        // Ensure that the same holds for push_entry
+        let mut dir2 = Directory::new(RelativePath::new("").unwrap(), vec![]);
+        dir2.push_entry(file1);
+        dir2.push_entry(DirectoryEntry { name: "subdir".into(), info: DirectoryEntryType::Directory(Some(sub_dir)) });
+        assert_eq!(dir.change_states, dir2.change_states);
+        assert_eq!(dir.conflict_states, dir2.conflict_states);
     }
 }
