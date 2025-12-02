@@ -9,7 +9,7 @@ repository = "https://github.com/FlexVaultSCM/fxv-api-rs"
 [features]
 default = ["mock_client", "mock_data_generator", "serde"]
 mock_client = ["dep:tokio","dep:serde", "dep:serde_json", "dep:rand", "enumset/serde", "tokio/fs", "tokio/time", "tokio/rt", "tokio/macros"]
-mock_data_generator = ["mock_client", "serde", "dep:argh", "dep:walkdir" ]
+mock_data_generator = ["serde", "dep:serde_json", "dep:argh", "dep:walkdir" ]
 serde = ["dep:serde", "enumset/serde"]
 
 [dependencies]
