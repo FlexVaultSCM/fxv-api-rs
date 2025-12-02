@@ -51,6 +51,7 @@ impl Directory {
 
     pub fn push_entry(&mut self, entry: DirectoryEntry) {
         // TODO: Make sure these stay sorted and unique
+        entry.aggregate_states_into(&mut self.conflict_states, &mut self.change_states);
         self.entries.push(entry);
     }
 }
@@ -79,7 +80,11 @@ impl DirectoryEntry {
         &self.info
     }
 
-    pub(crate) fn aggregate_states_into(&self, conflict_states: &mut ConflictStateSet, change_states: &mut ChangeStateSet) {
+    pub(crate) fn aggregate_states_into(
+        &self,
+        conflict_states: &mut ConflictStateSet,
+        change_states: &mut ChangeStateSet,
+    ) {
         match &self.info {
             DirectoryEntryType::File {
                 conflict_state,
@@ -145,6 +150,7 @@ impl FileMetadata {
 /// The change state of a directory entry, e.g. whether it is added, modified, deleted, or unchanged
 #[derive(Default, Debug, Hash, EnumSetType)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", enumset(serialize_repr = "list"))]
 pub enum ChangeState {
     /// The entry is unchanged from the base version
     #[default]
@@ -162,6 +168,7 @@ pub enum ChangeState {
 /// change, timestamps, etc.
 #[derive(Default, Debug, Hash, EnumSetType)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", enumset(serialize_repr = "list"))]
 pub enum ConflictState {
     /// The entry has no conflicts
     #[default]
@@ -204,7 +211,7 @@ mod tests {
             RelativePath::new("").unwrap(),
             vec![
                 file1.clone(),
-                DirectoryEntry::new("subdir".into(), DirectoryEntryType::Directory(Some(sub_dir))),
+                DirectoryEntry::new("subdir".into(), DirectoryEntryType::Directory(Some(sub_dir.clone()))),
             ],
         );
 
@@ -215,5 +222,12 @@ mod tests {
         assert!(dir.conflict_states.contains(ConflictState::None));
         assert!(dir.conflict_states.contains(ConflictState::Unresolved));
         assert!(!dir.conflict_states.contains(ConflictState::Resolved));
+
+        // Ensure that the same holds for push_entry
+        let mut dir2 = Directory::new(RelativePath::new("").unwrap(), vec![]);
+        dir2.push_entry(file1);
+        dir2.push_entry(DirectoryEntry { name: "subdir".into(), info: DirectoryEntryType::Directory(Some(sub_dir)) });
+        assert_eq!(dir.change_states, dir2.change_states);
+        assert_eq!(dir.conflict_states, dir2.conflict_states);
     }
 }
