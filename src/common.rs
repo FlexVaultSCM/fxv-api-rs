@@ -72,6 +72,8 @@ impl RelativePath {
     pub fn join(&self, other: &RelativePath) -> RelativePath {
         if self.0.is_empty() {
             other.clone()
+        } else if other.0.is_empty() {
+            self.clone()
         } else {
             RelativePath::new(format!("{}/{}", self.0, other.as_str())).unwrap()
         }
