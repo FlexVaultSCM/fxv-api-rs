@@ -73,13 +73,13 @@ impl DirStack {
     }
 
     fn pop_tail(&mut self) {
-        if let Some(last) = self.stack.pop() {
-            if let Some(new_last) = self.stack.last_mut() {
-                new_last.push_entry(DirectoryEntry::new(
-                    last.relative_path().file_name().unwrap().to_string(),
-                    DirectoryEntryType::Directory(Some(last)),
-                ));
-            }
+        if let Some(last) = self.stack.pop()
+            && let Some(new_last) = self.stack.last_mut()
+        {
+            new_last.push_entry(DirectoryEntry::new(
+                last.relative_path().file_name().unwrap().to_string(),
+                DirectoryEntryType::Directory(Some(last)),
+            ));
         }
     }
 
