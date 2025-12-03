@@ -25,6 +25,12 @@ pub enum MockWorkspaceApiJsonError {
     IoError(#[from] std::io::Error),
 }
 
+impl Default for MockWorkspaceApi {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MockWorkspaceApi {
     pub fn new() -> Self {
         MockWorkspaceApi {
@@ -178,7 +184,7 @@ mod tests {
     #[tokio::test]
     async fn test_json_data() {
         let test_json_data = include_str!("test_data/lyra.json");
-        let mut mock_api = MockWorkspaceApi::new();
+        let mut mock_api = MockWorkspaceApi::default();
 
         let result = mock_api
             .fetch_directory(&RelativePath::new("").unwrap(), DirectoryFetchOptions::default())
