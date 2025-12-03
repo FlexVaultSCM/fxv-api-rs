@@ -71,8 +71,8 @@ impl WorkspaceApi for MockWorkspaceApi {
     ) -> Result<Option<Directory>, Box<dyn std::error::Error>> {
         self.delay().await;
 
-        if path.is_empty() {
-            Ok(Some(self.full_directory_tree.clone()))
+        let mut directory = if path.is_empty() {
+            self.full_directory_tree.clone()
         } else {
             let mut current = &self.full_directory_tree;
 
@@ -99,14 +99,15 @@ impl WorkspaceApi for MockWorkspaceApi {
                 }
             }
 
-            let mut directory = current.clone();
-            if let Some(depth_limit) = options.depth_limit {
-                // Cull entries beyond the depth limit
-                directory.prune_to_depth(depth_limit);
-            }
+            current.clone()
+        };
 
-            Ok(Some(directory))
+        if let Some(depth_limit) = options.depth_limit {
+            // Cull entries beyond the depth limit
+            directory.prune_to_depth(depth_limit);
         }
+
+        Ok(Some(directory))
     }
 }
 
@@ -203,10 +204,43 @@ mod tests {
         let result = mock_api
             .fetch_directory(&RelativePath::new("").unwrap(), DirectoryFetchOptions::default())
             .await
+            .unwrap()
             .unwrap();
+
         assert!(
-            !result.unwrap().entries().is_empty(),
+            !result.entries().is_empty(),
             "Mock directory should not be empty after setting JSON data"
+        );
+
+        // No pruning means first entry should be "Build"
+        let first_entry = &result.entries()[0];
+        assert_eq!(first_entry.name(), "Build", "First entry should be 'Build'");
+
+        // Directory should be loaded
+        assert!(
+            matches!(first_entry.info(), DirectoryEntryType::Directory(Some(_))),
+            "First entry should be a loaded directory"
+        );
+
+        // Test depth limiting
+        let result = mock_api
+            .fetch_directory(
+                &RelativePath::new("").unwrap(),
+                DirectoryFetchOptions {
+                    depth_limit: Some(0),
+                    filter_string: None,
+                },
+            )
+            .await
+            .unwrap()
+            .unwrap();
+
+        // Pruning means first entry should still be "Build", but unloaded
+        let first_entry = &result.entries()[0];
+        assert_eq!(first_entry.name(), "Build", "First entry should be 'Build'");
+        assert!(
+            matches!(first_entry.info(), DirectoryEntryType::Directory(None)),
+            "First entry should be an unloaded directory due to depth limit"
         );
     }
 }
