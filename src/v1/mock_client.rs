@@ -1,17 +1,14 @@
 // == Std
-use std::{ops::Range, time::Duration};
+use std::{ops::Range, path::Path, time::Duration};
 // == Internal crates
 use super::{
-    client::WorkspaceApi,
+    client::{DirectoryFetchOptions, WorkspaceApi},
     model::{Directory, DirectoryEntryType},
 };
 use crate::common::RelativePath;
 // == External crates
 use thiserror::Error;
 use tokio::time::sleep;
-
-#[derive(Debug, Clone, Error)]
-pub enum MockWorkspaceError {}
 
 pub struct MockWorkspaceApi {
     full_directory_tree: Directory,
@@ -20,7 +17,37 @@ pub struct MockWorkspaceApi {
     request_latency_range_ms: Range<u32>,
 }
 
+#[derive(Debug, Error)]
+pub enum MockWorkspaceApiJsonError {
+    #[error("Failed to parse JSON data: {0}")]
+    SerdeJsonError(#[from] serde_json::Error),
+    #[error("I/O error: {0}")]
+    IoError(#[from] std::io::Error),
+}
+
 impl MockWorkspaceApi {
+    pub fn new() -> Self {
+        MockWorkspaceApi {
+            full_directory_tree: Directory::new(RelativePath::new("").unwrap(), vec![]),
+            request_latency_range_ms: 0..1,
+        }
+    }
+
+    pub async fn set_directory_tree_from_json_str(&mut self, json_data: &str) -> Result<(), MockWorkspaceApiJsonError> {
+        let directory: Directory = serde_json::from_str(json_data)?;
+        self.full_directory_tree = directory;
+
+        Ok(())
+    }
+
+    pub async fn set_directory_tree_from_json_file(
+        &mut self,
+        json_file_path: &Path,
+    ) -> Result<(), MockWorkspaceApiJsonError> {
+        let json = tokio::fs::read_to_string(json_file_path).await?;
+        self.set_directory_tree_from_json_str(&json).await
+    }
+
     async fn delay(&self) {
         let delay_ms = rand::random_range(self.request_latency_range_ms.clone());
         if delay_ms > 0 {
@@ -30,8 +57,12 @@ impl MockWorkspaceApi {
     }
 }
 
-impl WorkspaceApi<MockWorkspaceError> for MockWorkspaceApi {
-    async fn fetch_directory(&self, path: &RelativePath) -> Result<Option<Directory>, MockWorkspaceError> {
+impl WorkspaceApi for MockWorkspaceApi {
+    async fn fetch_directory(
+        &self,
+        path: &RelativePath,
+        options: DirectoryFetchOptions,
+    ) -> Result<Option<Directory>, Box<dyn std::error::Error>> {
         self.delay().await;
 
         if path.is_empty() {
@@ -62,7 +93,13 @@ impl WorkspaceApi<MockWorkspaceError> for MockWorkspaceApi {
                 }
             }
 
-            Ok(Some(current.clone()))
+            let mut directory = current.clone();
+            if let Some(depth_limit) = options.depth_limit {
+                // Cull entries beyond the depth limit
+                directory.prune_to_depth(depth_limit);
+            }
+
+            Ok(Some(directory))
         }
     }
 }
@@ -106,30 +143,64 @@ mod tests {
             request_latency_range_ms: 0..1,
         };
 
+        let fetch_options = DirectoryFetchOptions::default();
+
         let dir = mock_api
-            .fetch_directory(&RelativePath::new("missing/path").unwrap())
+            .fetch_directory(&RelativePath::new("missing/path").unwrap(), fetch_options.clone())
             .await
             .unwrap();
         assert!(dir.is_none());
 
         let dir = mock_api
-            .fetch_directory(&RelativePath::new("subdir").unwrap())
+            .fetch_directory(&RelativePath::new("subdir").unwrap(), fetch_options.clone())
             .await
             .unwrap()
             .expect("subdir should exist");
         assert_eq!(dir.relative_path().to_string(), "subdir");
 
         let dir = mock_api
-            .fetch_directory(&RelativePath::new("subdir/nested").unwrap())
+            .fetch_directory(&RelativePath::new("subdir/nested").unwrap(), fetch_options.clone())
             .await
             .unwrap()
             .expect("subdir/nested should exist");
         assert_eq!(dir.relative_path().to_string(), "subdir/nested");
 
         let dir = mock_api
-            .fetch_directory(&RelativePath::new("subdir/nested/file.txt").unwrap())
+            .fetch_directory(
+                &RelativePath::new("subdir/nested/file.txt").unwrap(),
+                fetch_options.clone(),
+            )
             .await
             .unwrap();
         assert!(dir.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_json_data() {
+        let test_json_data = include_str!("test_data/lyra.json");
+        let mut mock_api = MockWorkspaceApi::new();
+
+        let result = mock_api
+            .fetch_directory(&RelativePath::new("").unwrap(), DirectoryFetchOptions::default())
+            .await
+            .unwrap();
+        assert!(
+            result.unwrap().entries().is_empty(),
+            "Initial mock directory should be empty"
+        );
+
+        mock_api
+            .set_directory_tree_from_json_str(test_json_data)
+            .await
+            .expect("Setting directory tree from JSON should succeed");
+
+        let result = mock_api
+            .fetch_directory(&RelativePath::new("").unwrap(), DirectoryFetchOptions::default())
+            .await
+            .unwrap();
+        assert!(
+            !result.unwrap().entries().is_empty(),
+            "Mock directory should not be empty after setting JSON data"
+        );
     }
 }
