@@ -1,4 +1,9 @@
+// == Std
+
+// == Internal crates
 use crate::common::RelativePath;
+
+// == External crates
 use enumset::{EnumSet, EnumSetType};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -53,6 +58,20 @@ impl Directory {
         // TODO: Make sure these stay sorted and unique
         entry.aggregate_states_into(&mut self.conflict_states, &mut self.change_states);
         self.entries.push(entry);
+    }
+
+    /// Prunes (unloads, i.e. sets to None) directory sub-entries beyond the specified depth limit
+    pub fn prune_to_depth(&mut self, depth_limit: u32) {
+        for entry in &mut self.entries {
+            if let DirectoryEntryType::Directory(Some(dir)) = &mut entry.info {
+                if depth_limit > 0 {
+                    dir.prune_to_depth(depth_limit - 1);
+                } else {
+                    // Depth limit reached, unload this directory
+                    entry.info = DirectoryEntryType::Directory(None);
+                }
+            }
+        }
     }
 }
 
@@ -182,7 +201,7 @@ pub enum ConflictState {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
 
     #[test]
@@ -226,8 +245,172 @@ mod tests {
         // Ensure that the same holds for push_entry
         let mut dir2 = Directory::new(RelativePath::new("").unwrap(), vec![]);
         dir2.push_entry(file1);
-        dir2.push_entry(DirectoryEntry { name: "subdir".into(), info: DirectoryEntryType::Directory(Some(sub_dir)) });
+        dir2.push_entry(DirectoryEntry {
+            name: "subdir".into(),
+            info: DirectoryEntryType::Directory(Some(sub_dir)),
+        });
         assert_eq!(dir.change_states, dir2.change_states);
         assert_eq!(dir.conflict_states, dir2.conflict_states);
+    }
+
+    #[test]
+    fn test_pruning() {
+        let mut root_dir_entry = DirectoryEntry::new(
+            "".into(),
+            DirectoryEntryType::Directory(Some(Directory::new(RelativePath::new("").unwrap(), vec![]))),
+        );
+
+        push_entry(&mut root_dir_entry, new_file("file_root.txt"));
+
+        // Build a dir structure like:
+        // file_root.txt
+        // subdir_a_l1/
+        //   subdir_a_l2/
+        //     subdir_a_l3/
+        //       subdir_a_l4/
+        //         file_d.txt
+        // subdir_b_l1/
+        //   file_b.txt
+        //   subdir_b_l2/
+        //     file_c.txt
+        let mut subdir_a_l1 = new_dir(&root_dir_entry, "subdir_a_l1");
+        let mut subdir_a_l2 = new_dir(&subdir_a_l1, "subdir_a_l2");
+        let mut subdir_a_l3 = new_dir(&subdir_a_l2, "subdir_a_l3");
+        let mut subdir_a_l4 = new_dir(&subdir_a_l3, "subdir_a_l4");
+
+        push_entry(&mut subdir_a_l4, new_file("file_d.txt"));
+        push_entry(&mut subdir_a_l3, subdir_a_l4);
+        push_entry(&mut subdir_a_l2, subdir_a_l3);
+        push_entry(&mut subdir_a_l1, subdir_a_l2);
+        push_entry(&mut root_dir_entry, subdir_a_l1);
+
+        let mut subdir_b_l1 = new_dir(&root_dir_entry, "subdir_b_l1");
+        push_entry(&mut subdir_b_l1, new_file("file_b.txt"));
+        let mut subdir_b_l2 = new_dir(&subdir_b_l1, "subdir_b_l2");
+        push_entry(&mut subdir_b_l2, new_file("file_c.txt"));
+        push_entry(&mut subdir_b_l1, subdir_b_l2);
+        push_entry(&mut root_dir_entry, subdir_b_l1);
+
+        let root_directory = match &mut root_dir_entry.info {
+            DirectoryEntryType::Directory(Some(dir)) => dir,
+            _ => panic!("Root should be a directory"),
+        };
+
+        let mut names = vec![];
+        collect_names(root_directory, &mut names);
+        assert_eq!(
+            names,
+            vec![
+                "file_root.txt",
+                "subdir_a_l1",
+                "subdir_a_l1/subdir_a_l2",
+                "subdir_a_l1/subdir_a_l2/subdir_a_l3",
+                "subdir_a_l1/subdir_a_l2/subdir_a_l3/subdir_a_l4",
+                "subdir_a_l1/subdir_a_l2/subdir_a_l3/subdir_a_l4/file_d.txt",
+                "subdir_b_l1",
+                "subdir_b_l1/file_b.txt",
+                "subdir_b_l1/subdir_b_l2",
+                "subdir_b_l1/subdir_b_l2/file_c.txt",
+            ]
+        );
+
+        // Prune to depth 3
+        // This should remove subdir_a_l4 and its contents, but keep everything else
+        // subdir_a_l4 SHOULD still be in the list, but its contents should be gone
+        root_directory.prune_to_depth(3);
+        names.clear();
+        collect_names(root_directory, &mut names);
+        assert_eq!(
+            names,
+            vec![
+                "file_root.txt",
+                "subdir_a_l1",
+                "subdir_a_l1/subdir_a_l2",
+                "subdir_a_l1/subdir_a_l2/subdir_a_l3",
+                // This directory should still be present, but it should be unloaded
+                "subdir_a_l1/subdir_a_l2/subdir_a_l3/subdir_a_l4 (unloaded)",
+                "subdir_b_l1",
+                "subdir_b_l1/file_b.txt",
+                "subdir_b_l1/subdir_b_l2",
+                // Ensure that files at the prune depth are still present
+                "subdir_b_l1/subdir_b_l2/file_c.txt",
+            ]
+        );
+
+        // Prune to depth 1
+        // This should remove subdir_a_l2 and everything under it, and subdir_b_l2 and its contents
+        root_directory.prune_to_depth(1);
+        names.clear();
+        collect_names(root_directory, &mut names);
+        assert_eq!(
+            names,
+            vec![
+                "file_root.txt",
+                "subdir_a_l1",
+                // This directory should still be present, but it should be unloaded
+                "subdir_a_l1/subdir_a_l2 (unloaded)",
+                "subdir_b_l1",
+                "subdir_b_l1/file_b.txt",
+                // This directory should still be present, but it should be unloaded
+                "subdir_b_l1/subdir_b_l2 (unloaded)",
+            ]
+        );
+
+        // Try pruning to depth 0
+        root_directory.prune_to_depth(0);
+        names.clear();
+        collect_names(root_directory, &mut names);
+        assert_eq!(
+            names,
+            vec!["file_root.txt", "subdir_a_l1 (unloaded)", "subdir_b_l1 (unloaded)",]
+        );
+    }
+
+    fn collect_names(dir: &Directory, names: &mut Vec<String>) {
+        for entry in &dir.entries {
+            // We annotated unloaded directories specially
+            let mut full_path_string = dir.relative_path().try_join(&entry.name).unwrap().to_string();
+            if matches!(&entry.info, DirectoryEntryType::Directory(None)) {
+                full_path_string.push_str(" (unloaded)");
+            }
+
+            names.push(full_path_string);
+            if let DirectoryEntryType::Directory(Some(sub_dir)) = &entry.info {
+                collect_names(sub_dir, names);
+            }
+        }
+    }
+
+    fn new_dir(parent: &DirectoryEntry, name: &str) -> DirectoryEntry {
+        let parent_path = match &parent.info {
+            DirectoryEntryType::Directory(Some(dir)) => dir.relative_path(),
+            _ => panic!("Parent must be a directory"),
+        };
+
+        let relative_path = parent_path.try_join(name).unwrap();
+
+        DirectoryEntry::new(
+            relative_path.file_name().expect("Should have a file name").to_string(),
+            DirectoryEntryType::Directory(Some(Directory::new(relative_path, vec![]))),
+        )
+    }
+
+    fn push_entry(dir: &mut DirectoryEntry, entry: DirectoryEntry) {
+        if let DirectoryEntryType::Directory(Some(directory)) = &mut dir.info {
+            directory.push_entry(entry);
+        } else {
+            panic!("DirectoryEntry is not a directory");
+        }
+    }
+
+    fn new_file(name: &str) -> DirectoryEntry {
+        DirectoryEntry::new(
+            name.to_string(),
+            DirectoryEntryType::File {
+                metadata: FileMetadata::new(0, 0),
+                change_state: ChangeState::default(),
+                conflict_state: ConflictState::default(),
+            },
+        )
     }
 }

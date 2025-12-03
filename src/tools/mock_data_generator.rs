@@ -73,13 +73,13 @@ impl DirStack {
     }
 
     fn pop_tail(&mut self) {
-        if let Some(last) = self.stack.pop() {
-            if let Some(new_last) = self.stack.last_mut() {
-                new_last.push_entry(DirectoryEntry::new(
-                    last.relative_path().file_name().unwrap().to_string(),
-                    DirectoryEntryType::Directory(Some(last)),
-                ));
-            }
+        if let Some(last) = self.stack.pop()
+            && let Some(new_last) = self.stack.last_mut()
+        {
+            new_last.push_entry(DirectoryEntry::new(
+                last.relative_path().file_name().unwrap().to_string(),
+                DirectoryEntryType::Directory(Some(last)),
+            ));
         }
     }
 
@@ -102,7 +102,9 @@ impl DirStack {
         while self.stack.len() > 1 {
             self.pop_tail();
         }
-        self.stack.pop().expect("There should be at least the root directory in the stack")
+        self.stack
+            .pop()
+            .expect("There should be at least the root directory in the stack")
     }
 }
 
@@ -195,7 +197,14 @@ mod tests {
                 if e.metadata().unwrap().is_dir() {
                     None
                 } else {
-                    Some(e.path().strip_prefix(target_dir).unwrap().to_string_lossy().to_string().replace("\\", "/"))
+                    Some(
+                        e.path()
+                            .strip_prefix(target_dir)
+                            .unwrap()
+                            .to_string_lossy()
+                            .to_string()
+                            .replace("\\", "/"),
+                    )
                 }
             })
             .collect::<Vec<_>>();
@@ -234,12 +243,11 @@ mod tests {
                     // Empty directory, do nothing
                 }
                 DirectoryEntryType::File { .. } => {
-                    let file_path = if directory.relative_path().as_str().is_empty() {
-                        entry.name().to_string()
-                    } else {
-                        format!("{}/{}", directory.relative_path().as_str(), entry.name())
-                    };
-                    all_files.push(RelativePath::new(&file_path).unwrap());
+                    let file_path = directory
+                        .relative_path()
+                        .try_join(entry.name())
+                        .expect("File name should be a valid relative path");
+                    all_files.push(file_path);
                 }
             }
         }

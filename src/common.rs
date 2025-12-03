@@ -61,6 +61,24 @@ impl RelativePath {
         }
     }
 
+    /// Joins this relative path with another relative path, returning a new RelativePath
+    /// Will return a RelativePathError if the other path is invalid
+    pub fn try_join(&self, other: impl AsRef<str>) -> Result<RelativePath, RelativePathError> {
+        let other_path = RelativePath::new(other.as_ref())?;
+        Ok(self.join(&other_path))
+    }
+
+    /// Joins this relative path with another relative path, returning a new RelativePath
+    pub fn join(&self, other: &RelativePath) -> RelativePath {
+        if self.0.is_empty() {
+            other.clone()
+        } else if other.0.is_empty() {
+            self.clone()
+        } else {
+            RelativePath::new(format!("{}/{}", self.0, other.as_str())).unwrap()
+        }
+    }
+
     /// Returns an iterator over the components of the relative path
     pub fn components<'a>(&'a self) -> RelativePathComponents<'a> {
         RelativePathComponents {
@@ -151,6 +169,12 @@ impl TryFrom<&Path> for RelativePath {
     }
 }
 
+impl AsRef<str> for RelativePath {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
 /// An iterator over the components of a RelativePath
 #[derive(Debug, Clone)]
 pub struct RelativePathComponents<'a> {
@@ -238,6 +262,25 @@ mod tests {
         let invalid_path = RelativePath::new("some//path");
         //assert!(invalid_path.is_err(), "Consecutive separators should be invalid");
         */
+    }
+
+    #[test]
+    fn test_join() {
+        let base_path = RelativePath::new("some/path").unwrap();
+        let joined_path = base_path.try_join("to/file.txt").unwrap();
+        assert_eq!(
+            joined_path.to_string(),
+            "some/path/to/file.txt",
+            "Joined path should match expected format"
+        );
+
+        let base_path = RelativePath::default();
+        let joined_path = base_path.try_join("to/file.txt").unwrap();
+        assert_eq!(
+            joined_path.to_string(),
+            "to/file.txt",
+            "Joining to an empty base path should yield the other path"
+        );
     }
 
     #[test]
