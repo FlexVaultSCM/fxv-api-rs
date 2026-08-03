@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:status:v1",
+  "title": "fxv status command payload",
+  "description": "Payload schema for the status command's JSON output.",
+  "type": "object",
+  "required": [
+    "current_branch",
+    "head_commit",
+    "files",
+    "file_change_counts"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "current_branch": {
+      "type": "string",
+      "description": "Name of the workspace's current branch."
+    },
+    "head_commit": {
+      "$ref": "#/$defs/headCommit"
+    },
+    "sync_status": {
+      "$ref": "#/$defs/syncStatus",
+      "description": "Present only for a parented draft with a known synced revision."
+    },
+    "files": {
+      "type": "array",
+      "items": { "$ref": "urn:fxv:schema:common:v1#/$defs/fileStatus" }
+    },
+    "file_change_counts": {
+      "$ref": "#/$defs/fileChangeCounts"
+    }
+  },
+  "$defs": {
+    "headCommit": {
+      "type": "object",
+      "required": [
+        "state"
+      ],
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "required": ["state", "branch"],
+          "properties": {
+            "state": { "const": "empty_branch" },
+            "branch": { "type": "string" }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["state", "local_snapshot"],
+          "properties": {
+            "state": { "const": "unparented_draft" },
+            "local_snapshot": { "$ref": "urn:fxv:schema:common:v1#/$defs/commitRef" }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["state", "local_snapshot", "published_head"],
+          "properties": {
+            "state": { "const": "parented_draft" },
+            "local_snapshot": { "$ref": "urn:fxv:schema:common:v1#/$defs/commitRef" },
+            "published_head": { "$ref": "urn:fxv:schema:common:v1#/$defs/commitRef" }
+          }
+        }
+      ]
+    },
+    "syncStatus": {
+      "type": "object",
+      "required": [
+        "up_to_date",
+        "revisions_behind",
+        "published_head_revision",
+        "synced_revision"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "up_to_date": { "type": "boolean" },
+        "revisions_behind": { "type": "integer", "minimum": 0 },
+        "published_head_revision": { "type": "integer", "minimum": 0 },
+        "synced_revision": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "fileChangeCounts": {
+      "type": "object",
+      "required": [
+        "total",
+        "unpublished",
+        "workspace_need_snapshot"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of changed files."
+        },
+        "unpublished": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of entries carrying unpublished_state."
+        },
+        "workspace_need_snapshot": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of entries carrying workspace_state."
+        }
+      }
+    }
+  }
+}

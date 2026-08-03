@@ -1,0 +1,302 @@
+//! The outer envelope every `fxv --format json` invocation prints to stdout, success or failure.
+//! Matches `schemas/envelope.schema.json` (`urn:fxv:schema:envelope:v1`).
+
+// == External crates
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+
+/// One complete JSON message from the CLI: metadata about the producing process plus the
+/// command-specific payload. Errors use the same envelope with a `message.kind` of `"error"`
+/// and an [`ErrorJson`] payload, also on stdout, so consumers only ever parse one stream.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct OutputEnvelope<T> {
+    pub program: ProgramMetadata,
+    pub message: MessageEnvelope<T>,
+}
+
+/// Details of the `fxv` process that produced a message. `arguments` is the full argv with
+/// sensitive flag values (S3 credentials) redacted to `"***"` by the CLI before emission.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ProgramMetadata {
+    pub name: String,
+    pub version: String,
+    pub executable: String,
+    pub arguments: Vec<String>,
+    /// RFC 3339 timestamp of the invocation.
+    pub invoked_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hostname: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pid: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub working_directory: Option<String>,
+}
+
+/// The message half of the envelope. `kind` is the dash-joined CLI command path (`status`,
+/// `user-add`, ...), `error` for failures, or a `-progress`-suffixed kind for interim JSONL
+/// updates (reserved; the CLI does not emit these yet). `update_frequency_seconds` and
+/// `sequence` are only present on progress messages.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct MessageEnvelope<T> {
+    pub kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub update_frequency_seconds: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sequence: Option<u64>,
+    pub payload: T,
+}
+
+/// JSON payload for a failed command (`message.kind == "error"`). Matches
+/// `schemas/error.schema.json`. `backtrace` is present only when the CLI actually captured one
+/// (`RUST_BACKTRACE` set).
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ErrorJson {
+    pub message: String,
+    pub exit_code: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub backtrace: Option<String>,
+}
+
+/// Process exit codes the CLI commits to. Mirrors `fxv_cli::ExitCode`; codes other than these
+/// map to [`ExitCode::Other`] so new codes are not a breaking change for consumers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExitCode {
+    Ok,
+    GeneralError,
+    /// The workspace was locked by another fxv process. Reserved code 99.
+    WorkspaceLocked,
+    Other(i32),
+}
+
+impl From<i32> for ExitCode {
+    fn from(code: i32) -> Self {
+        match code {
+            0 => ExitCode::Ok,
+            1 => ExitCode::GeneralError,
+            99 => ExitCode::WorkspaceLocked,
+            other => ExitCode::Other(other),
+        }
+    }
+}
+
+impl From<ExitCode> for i32 {
+    fn from(code: ExitCode) -> Self {
+        match code {
+            ExitCode::Ok => 0,
+            ExitCode::GeneralError => 1,
+            ExitCode::WorkspaceLocked => 99,
+            ExitCode::Other(other) => other,
+        }
+    }
+}
+
+impl ErrorJson {
+    pub fn exit_code(&self) -> ExitCode {
+        self.exit_code.into()
+    }
+}
+
+/// The decoded output of one CLI invocation: the expected payload, or the CLI's own error report.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ParsedOutput<T> {
+    Success(OutputEnvelope<T>),
+    Error(OutputEnvelope<ErrorJson>),
+}
+
+/// Parses one complete stdout envelope, discriminating success from error by `message.kind`.
+/// Returns `Err` only when the text is not a well-formed envelope at all (or the payload does not
+/// match `T`) — a CLI-reported failure is the `Ok(ParsedOutput::Error(..))` case.
+pub fn parse_output<T: DeserializeOwned>(json: &str) -> Result<ParsedOutput<T>, serde_json::Error> {
+    let raw: OutputEnvelope<serde_json::Value> = serde_json::from_str(json)?;
+    let OutputEnvelope { program, message } = raw;
+    if message.kind == "error" {
+        Ok(ParsedOutput::Error(OutputEnvelope {
+            program,
+            message: MessageEnvelope {
+                payload: serde_json::from_value(message.payload)?,
+                kind: message.kind,
+                update_frequency_seconds: message.update_frequency_seconds,
+                sequence: message.sequence,
+            },
+        }))
+    } else {
+        Ok(ParsedOutput::Success(OutputEnvelope {
+            program,
+            message: MessageEnvelope {
+                payload: serde_json::from_value(message.payload)?,
+                kind: message.kind,
+                update_frequency_seconds: message.update_frequency_seconds,
+                sequence: message.sequence,
+            },
+        }))
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod test_support {
+    // == Std
+    use std::path::Path;
+
+    // == External crates
+    use jsonschema::{Resource, Validator};
+    use serde_json::Value;
+
+    /// Sub-schemas registered under their URNs so `envelope.schema.json`'s `$ref`s resolve.
+    const SCHEMA_RESOURCES: &[(&str, &str)] = &[
+        ("urn:fxv:schema:changeinfo:v1", "changeinfo.schema.json"),
+        ("urn:fxv:schema:common:v1", "common.schema.json"),
+        ("urn:fxv:schema:error:v1", "error.schema.json"),
+        ("urn:fxv:schema:history:v1", "history.schema.json"),
+        ("urn:fxv:schema:init:v1", "init.schema.json"),
+        ("urn:fxv:schema:login:v1", "login.schema.json"),
+        ("urn:fxv:schema:logout:v1", "logout.schema.json"),
+        ("urn:fxv:schema:status:v1", "status.schema.json"),
+        ("urn:fxv:schema:user:v1", "user.schema.json"),
+        ("urn:fxv:schema:workspace-sync:v1", "workspace_sync.schema.json"),
+    ];
+
+    fn load_schema(file_name: &str) -> Value {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("schemas").join(file_name);
+        serde_json::from_str(&std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {file_name}: {e}")))
+            .unwrap_or_else(|e| panic!("parse {file_name}: {e}"))
+    }
+
+    /// Compiles `envelope.schema.json` with every payload schema registered, so a full envelope
+    /// (any command kind) can be validated. Mirrors the validator the CLI's own tests build.
+    pub(crate) fn build_envelope_validator() -> Validator {
+        let mut options = jsonschema::options();
+        for (urn, file_name) in SCHEMA_RESOURCES {
+            let resource = Resource::from_contents(load_schema(file_name)).expect(file_name);
+            options.with_resource(*urn, resource);
+        }
+        options
+            .build(&load_schema("envelope.schema.json"))
+            .expect("Failed to compile envelope schema")
+    }
+
+    /// Serializes `payload` under a complete-message envelope of `kind` and asserts it validates.
+    pub(crate) fn assert_payload_validates<T: serde::Serialize>(kind: &str, payload: &T) -> Value {
+        let envelope = super::OutputEnvelope {
+            program: sample_program_metadata(),
+            message: super::MessageEnvelope {
+                kind: kind.to_string(),
+                update_frequency_seconds: None,
+                sequence: None,
+                payload,
+            },
+        };
+        let json = serde_json::to_value(&envelope).unwrap();
+        let validator = build_envelope_validator();
+        let errors: Vec<_> = validator.iter_errors(&json).collect();
+        assert!(
+            errors.is_empty(),
+            "Schema validation errors for kind {kind}: {errors:?}"
+        );
+        json
+    }
+
+    pub(crate) fn sample_program_metadata() -> super::ProgramMetadata {
+        super::ProgramMetadata {
+            name: "fxv".to_string(),
+            version: "0.0.0-test".to_string(),
+            executable: "/usr/bin/fxv".to_string(),
+            arguments: vec![
+                "fxv".to_string(),
+                "status".to_string(),
+                "--format".to_string(),
+                "json".to_string(),
+            ],
+            invoked_at: "2026-01-01T00:00:00Z".to_string(),
+            hostname: None,
+            pid: Some(4242),
+            working_directory: Some("/work".to_string()),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{test_support::*, *};
+
+    #[test]
+    fn test_error_envelope_round_trip_and_schema() {
+        let payload = ErrorJson {
+            message: "Workspace is locked by another process.".to_string(),
+            exit_code: ExitCode::WorkspaceLocked.into(),
+            backtrace: Some("0: some::frame".to_string()),
+        };
+        let json = assert_payload_validates("error", &payload);
+        assert_eq!(json["message"]["payload"]["exit_code"], 99);
+
+        let parsed: ErrorJson = serde_json::from_value(json["message"]["payload"].clone()).unwrap();
+        assert_eq!(parsed, payload);
+        assert_eq!(parsed.exit_code(), ExitCode::WorkspaceLocked);
+    }
+
+    #[test]
+    fn test_missing_backtrace_is_omitted_not_null() {
+        let payload = ErrorJson {
+            message: "boom".to_string(),
+            exit_code: ExitCode::GeneralError.into(),
+            backtrace: None,
+        };
+        let json = serde_json::to_value(&payload).unwrap();
+        assert!(json.get("backtrace").is_none());
+    }
+
+    #[test]
+    fn test_parse_output_discriminates_error_kind() {
+        let envelope = OutputEnvelope {
+            program: sample_program_metadata(),
+            message: MessageEnvelope {
+                kind: "error".to_string(),
+                update_frequency_seconds: None,
+                sequence: None,
+                payload: ErrorJson {
+                    message: "no workspace".to_string(),
+                    exit_code: 1,
+                    backtrace: None,
+                },
+            },
+        };
+        let text = serde_json::to_string(&envelope).unwrap();
+
+        // Even when the caller expected a login payload, an error envelope parses as Error.
+        match parse_output::<crate::v1::login::LoginJson>(&text).unwrap() {
+            ParsedOutput::Error(e) => {
+                assert_eq!(e.message.payload.message, "no workspace");
+                assert_eq!(e.message.payload.exit_code(), ExitCode::GeneralError);
+            }
+            ParsedOutput::Success(_) => panic!("error envelope parsed as success"),
+        }
+    }
+
+    #[test]
+    fn test_parse_output_success() {
+        let envelope = OutputEnvelope {
+            program: sample_program_metadata(),
+            message: MessageEnvelope {
+                kind: "login".to_string(),
+                update_frequency_seconds: None,
+                sequence: None,
+                payload: crate::v1::login::LoginJson {
+                    username: "alice".to_string(),
+                },
+            },
+        };
+        let text = serde_json::to_string(&envelope).unwrap();
+
+        match parse_output::<crate::v1::login::LoginJson>(&text).unwrap() {
+            ParsedOutput::Success(s) => assert_eq!(s.message.payload.username, "alice"),
+            ParsedOutput::Error(_) => panic!("success envelope parsed as error"),
+        }
+    }
+
+    #[test]
+    fn test_exit_code_mapping() {
+        assert_eq!(ExitCode::from(0), ExitCode::Ok);
+        assert_eq!(ExitCode::from(1), ExitCode::GeneralError);
+        assert_eq!(ExitCode::from(99), ExitCode::WorkspaceLocked);
+        assert_eq!(ExitCode::from(42), ExitCode::Other(42));
+        assert_eq!(i32::from(ExitCode::WorkspaceLocked), 99);
+    }
+}

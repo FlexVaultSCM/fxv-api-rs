@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:user:v1",
+  "title": "fxv user command payload",
+  "description": "Payload schema for the user management commands' (user-add, user-edit, user-deactivate) JSON output.",
+  "type": "object",
+  "required": [
+    "action",
+    "id",
+    "username"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "type": "string",
+      "enum": [
+        "added",
+        "edited",
+        "deactivated"
+      ],
+      "description": "The management action that was performed on the user."
+    },
+    "id": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Stable numeric identifier of the affected user."
+    },
+    "username": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Username of the affected user."
+    }
+  }
+}

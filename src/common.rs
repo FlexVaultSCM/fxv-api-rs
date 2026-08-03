@@ -6,7 +6,6 @@ use std::{
 };
 
 // == External crates
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -24,8 +23,7 @@ pub enum RelativePathError {
 /// but without the platform-specific behavior. It does not support relative components like `..`, nor absolute paths,
 /// and always uses `/` as the separator. It is always normalized, and always transformable to UTF-8.  Non-UTF-8 paths
 /// are not supported for now.
-#[derive(Default, Debug, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct RelativePath(String);
 
 impl Display for RelativePath {

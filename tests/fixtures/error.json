@@ -1,0 +1,25 @@
+{
+  "program": {
+    "name": "fxv",
+    "version": "0.1.0",
+    "executable": "/home/devuser/workspace/fxv-core/target/debug/fxv",
+    "arguments": [
+      "/home/devuser/workspace/fxv-core/target/debug/fxv",
+      "status",
+      "--format",
+      "json",
+      "--no-color",
+      "--unattended"
+    ],
+    "invoked_at": "2026-08-03T04:43:51.996399045Z",
+    "pid": 55138,
+    "working_directory": "/tmp/claude-1000/-home-devuser-workspace-fxv-desktop/cf85e58a-8a71-4d44-8ead-3ff9b7e22e1f/scratchpad/fixtures_run"
+  },
+  "message": {
+    "kind": "error",
+    "payload": {
+      "message": "Workspace error: No workspace found at '/tmp/claude-1000/-home-devuser-workspace-fxv-desktop/cf85e58a-8a71-4d44-8ead-3ff9b7e22e1f/scratchpad/fixtures_run' or any of its parents",
+      "exit_code": 1
+    }
+  }
+}

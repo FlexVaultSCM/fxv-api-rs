@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:init:v1",
+  "title": "fxv init command payload",
+  "description": "Payload schema for the `fxv init` command's JSON output.",
+  "type": "object",
+  "required": [
+    "workspace_root",
+    "repo_uri",
+    "local_only"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "workspace_root": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Absolute or relative path of the directory the workspace was created in."
+    },
+    "repo_uri": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "URI of the repository the new workspace is connected to, or null for a --local-only workspace."
+    },
+    "local_only": {
+      "type": "boolean",
+      "description": "True when the workspace was created with --local-only and has no remote repository behind it."
+    }
+  }
+}

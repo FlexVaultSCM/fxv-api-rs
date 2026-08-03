@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:workspace-sync:v1",
+  "title": "fxv workspace-sync command payload",
+  "description": "Shared payload schema for the workspace-sync family of commands (goto, revert, sync): the outcome of moving the workspace to a target tree.",
+  "type": "object",
+  "required": [
+    "target_revision",
+    "files_updated_count",
+    "error_count",
+    "files_updated"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "target_revision": {
+      "type": "string",
+      "description": "Spec of the revision the workspace was moved to (e.g. 'main.8' or 'main.-.5')."
+    },
+    "created_revisions": {
+      "type": "array",
+      "description": "Snapshots created by the operation, in creation order: the pre-sync snapshot before the preserved-files snapshot. Omitted when none were created.",
+      "items": {
+        "$ref": "urn:fxv:schema:common:v1#/$defs/commitRef"
+      }
+    },
+    "files_updated_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of successfully updated files."
+    },
+    "error_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of files whose change could not be applied to the working tree."
+    },
+    "files_updated": {
+      "type": "array",
+      "description": "The successfully updated files, each with the change the sync applied on the workspace axis.",
+      "items": {
+        "$ref": "urn:fxv:schema:common:v1#/$defs/fileStatus"
+      }
+    },
+    "conflicted_files": {
+      "type": "array",
+      "description": "Workspace-relative paths ('/'-separated) of unresolved conflicts in the target tree, which block publishing until resolved. Omitted when there are none.",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

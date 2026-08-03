@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:common:v1",
+  "title": "fxv shared payload definitions",
+  "description": "Definitions shared across fxv command payload schemas. Referenced by fragment (e.g. urn:fxv:schema:common:v1#/$defs/commitInfo); not validated as a standalone document.",
+  "$defs": {
+    "commitInfo": {
+      "type": "object",
+      "required": [
+        "branch",
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "branch": {
+          "type": "string",
+          "description": "Branch name."
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Published revision number. For a draft, the published parent it is based on; omitted for a draft with no published parent."
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "published",
+            "draft"
+          ],
+          "description": "Whether this is a published or draft commit."
+        },
+        "draft_revision": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Draft-specific revision number, present only for draft commits."
+        }
+      }
+    },
+    "changeKind": {
+      "type": "string",
+      "enum": [
+        "added",
+        "modified",
+        "deleted",
+        "maybe_changed"
+      ],
+      "description": "The kind of change to a file. 'maybe_changed' only arises on a workspace-axis change."
+    },
+    "commitRef": {
+      "type": "object",
+      "required": [
+        "commit",
+        "author_id",
+        "author_display_name",
+        "author_details"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "commit": {
+          "$ref": "#/$defs/commitInfo"
+        },
+        "commit_hash": {
+          "type": "string",
+          "description": "Hex-encoded commit hash. Omitted where the caller doesn't have one to hand (e.g. `history`)."
+        },
+        "author_id": {
+          "type": "string",
+          "description": "Stable display identifier for the author."
+        },
+        "author_display_name": {
+          "type": "string",
+          "description": "Human-readable author display name."
+        },
+        "author_details": {
+          "$ref": "#/$defs/authorDetails"
+        },
+        "import_info": {
+          "$ref": "#/$defs/importInfo",
+          "description": "Source-specific import provenance, present only for imported commits."
+        }
+      }
+    },
+    "fileStatus": {
+      "type": "object",
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Workspace-relative path with '/' separators."
+        },
+        "unpublished_state": {
+          "$ref": "#/$defs/changeKind",
+          "description": "Change kind of the snapshotted-but-unpublished draft change."
+        },
+        "workspace_state": {
+          "$ref": "#/$defs/changeKind",
+          "description": "Change kind for a file that still needs snapshotting, or the change a sync applied."
+        },
+        "conflict_state": {
+          "type": "object",
+          "description": "Conflict details for the file if a conflict exists; present only when the file has a conflict."
+        },
+        "size": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "File size in bytes, if available."
+        }
+      }
+    },
+    "authorDetails": {
+      "description": "Resolved author info, serialized as an internally-tagged enum keyed by \"type\".",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "Local" }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "Service" }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["type", "id", "username", "display_name"],
+          "properties": {
+            "type": { "const": "FxvUser" },
+            "id": { "type": "integer", "minimum": 0 },
+            "username": { "type": "string" },
+            "display_name": { "type": "string" }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["type", "name", "email"],
+          "properties": {
+            "type": { "const": "GitUser" },
+            "name": { "type": "string" },
+            "email": { "type": "string" }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["type", "username", "email", "display_name"],
+          "properties": {
+            "type": { "const": "P4User" },
+            "username": { "type": "string" },
+            "email": { "type": "string" },
+            "display_name": { "type": "string" }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["type", "message"],
+          "properties": {
+            "type": { "const": "Error" },
+            "message": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "importInfo": {
+      "description": "Commit import provenance, serialized as an internally-tagged enum keyed by \"type\". Source-specific (git today), mirroring the storage ImportInfo enum.",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "required": ["type", "commit_hash"],
+          "properties": {
+            "type": { "const": "Git" },
+            "commit_hash": { "type": "string" },
+            "repo_id": { "type": ["string", "null"] }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["type", "changelist", "user_name", "client_workspace", "depot_path"],
+          "properties": {
+            "type": { "const": "Perforce" },
+            "changelist": { "type": "integer", "minimum": 0 },
+            "user_name": { "type": "string" },
+            "client_workspace": { "type": "string" },
+            "depot_path": { "type": "string" },
+            "stream": { "type": ["string", "null"] }
+          }
+        }
+      ]
+    }
+  }
+}

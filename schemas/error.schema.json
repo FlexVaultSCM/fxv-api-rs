@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:error:v1",
+  "title": "fxv error payload",
+  "description": "Payload schema emitted under a message kind of `error` when a command fails. Any command can produce this payload instead of its own; the process exit code is carried in `exit_code`.",
+  "type": "object",
+  "required": [
+    "message",
+    "exit_code"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human readable description of the failure - the same text the human output format prints to stderr."
+    },
+    "exit_code": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The process exit code the CLI returns for this failure. 1 is a general error; 99 means the workspace was locked by another process."
+    },
+    "backtrace": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Backtrace captured at the point the error was raised. Present only when backtrace capture was enabled (e.g. RUST_BACKTRACE=1) and a backtrace was available."
+    }
+  }
+}
