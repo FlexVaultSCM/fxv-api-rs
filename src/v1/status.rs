@@ -137,6 +137,23 @@ mod tests {
     }
 
     #[test]
+    fn test_commit_ref_timestamp_round_trips_and_validates() {
+        // `timestamp` is being added to status's local_snapshot/published_head by the CLI in a
+        // parallel change; the schema and struct must accept it (and omit it when absent).
+        let mut payload = sample_status();
+        if let HeadCommitJson::ParentedDraft { published_head, .. } = &mut payload.head_commit {
+            published_head.timestamp = Some(1700000000000);
+        }
+        let json = assert_payload_validates("status", &payload);
+        let parsed: StatusJson = serde_json::from_value(json["message"]["payload"].clone()).unwrap();
+        assert_eq!(parsed, payload);
+
+        let head = &json["message"]["payload"]["head_commit"];
+        assert_eq!(head["published_head"]["timestamp"], 1700000000000i64);
+        assert!(head["local_snapshot"].get("timestamp").is_none());
+    }
+
+    #[test]
     fn test_file_axis_helpers() {
         let status = sample_status();
         assert_eq!(status.unpublished_files().count(), 1);

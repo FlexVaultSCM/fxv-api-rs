@@ -18,6 +18,11 @@ pub struct CommitRefJson {
     pub author_details: AuthorDisplayInfo,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub import_info: Option<ImportInfoDisplay>,
+    /// Commit timestamp in milliseconds since the Unix epoch. Being added to the CLI's status
+    /// output (on `local_snapshot`/`published_head`) in parallel — optional so both sides can
+    /// land independently.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timestamp: Option<i64>,
 }
 
 /// Identifies a revision on a branch: `main.4` published, `main.4.2` draft, `main.-.2` unparented
@@ -34,6 +39,20 @@ pub struct CommitInfoJson {
     pub commit_type: CommitType,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub draft_revision: Option<u64>,
+}
+
+impl CommitInfoJson {
+    /// Formats the revision-ID spec string, mirroring `fxv_repo`'s `CommitInfo::to_spec_string`:
+    /// `main.4` published, `main.4.2` draft, `main.-.2` unparented draft.
+    pub fn to_spec_string(&self) -> String {
+        match (self.revision, self.draft_revision) {
+            (Some(published), Some(draft)) => format!("{}.{}.{}", self.branch, published, draft),
+            (Some(published), None) => format!("{}.{}", self.branch, published),
+            (None, Some(draft)) => format!("{}.-.{}", self.branch, draft),
+            // The CLI never emits a commit with neither revision; fall back to the bare branch.
+            (None, None) => self.branch.clone(),
+        }
+    }
 }
 
 /// Whether a commit is published or a local draft. The CLI serializes this from a `&'static str`;
@@ -155,6 +174,7 @@ pub(crate) mod test_support {
                 display_name: "Alice".to_string(),
             },
             import_info: None,
+            timestamp: None,
         }
     }
 
@@ -175,6 +195,7 @@ pub(crate) mod test_support {
                 display_name: "Alice".to_string(),
             },
             import_info: None,
+            timestamp: None,
         }
     }
 }
@@ -182,6 +203,24 @@ pub(crate) mod test_support {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_spec_string_formats() {
+        let mut info = CommitInfoJson {
+            branch: "main".to_string(),
+            revision: Some(4),
+            commit_type: CommitType::Published,
+            draft_revision: None,
+        };
+        assert_eq!(info.to_spec_string(), "main.4");
+
+        info.commit_type = CommitType::Draft;
+        info.draft_revision = Some(2);
+        assert_eq!(info.to_spec_string(), "main.4.2");
+
+        info.revision = None;
+        assert_eq!(info.to_spec_string(), "main.-.2");
+    }
 
     #[test]
     fn test_commit_type_wire_names() {
