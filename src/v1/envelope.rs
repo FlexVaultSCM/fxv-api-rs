@@ -1,8 +1,11 @@
 //! The outer envelope every `fxv --format json` invocation prints to stdout, success or failure.
 //! Matches `schemas/envelope.schema.json` (`urn:fxv:schema:envelope:v1`).
 
+// == Std
+use std::{fmt, str::FromStr};
+
 // == External crates
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de::DeserializeOwned};
 
 /// One complete JSON message from the CLI: metadata about the producing process plus the
 /// command-specific payload. Errors use the same envelope with a `message.kind` of `"error"`
@@ -38,11 +41,72 @@ pub struct ProgramMetadata {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct MessageEnvelope<T> {
     pub kind: String,
+    /// The payload schema's version on this `kind`'s own timeline. Every kind starts at `1.0`; the
+    /// minor moves for an additive change, the major for anything a consumer could break on.
+    pub version: MessageVersion,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub update_frequency_seconds: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sequence: Option<u64>,
     pub payload: T,
+}
+
+/// A message's `major.minor` payload-schema version, versioned per `kind` rather than globally.
+/// Mirrors the CLI's `MessageVersion`: on the wire it is the string `"1.0"`, not a number, so `1.10`
+/// cannot be confused with `1.1`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MessageVersion {
+    pub major: u32,
+    pub minor: u32,
+}
+
+impl MessageVersion {
+    pub const fn new(major: u32, minor: u32) -> Self {
+        Self { major, minor }
+    }
+
+    /// Whether a consumer written against `expected` can read a payload of this version: the major
+    /// must match exactly, and the payload must carry at least the minor the consumer expects.
+    pub fn is_compatible_with(&self, expected: MessageVersion) -> bool {
+        self.major == expected.major && self.minor >= expected.minor
+    }
+}
+
+impl fmt::Display for MessageVersion {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}.{}", self.major, self.minor)
+    }
+}
+
+/// A `version` string the CLI could not have produced (the envelope schema pins it to `major.minor`).
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
+#[error("Invalid message version '{0}', expected 'major.minor'")]
+pub struct MessageVersionParseError(String);
+
+impl FromStr for MessageVersion {
+    type Err = MessageVersionParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let invalid = || MessageVersionParseError(s.to_string());
+        let (major, minor) = s.split_once('.').ok_or_else(invalid)?;
+        Ok(Self {
+            major: major.parse().map_err(|_| invalid())?,
+            minor: minor.parse().map_err(|_| invalid())?,
+        })
+    }
+}
+
+impl Serialize for MessageVersion {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_str(self)
+    }
+}
+
+impl<'de> Deserialize<'de> for MessageVersion {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let raw = String::deserialize(deserializer)?;
+        raw.parse().map_err(serde::de::Error::custom)
+    }
 }
 
 /// JSON payload for a failed command (`message.kind == "error"`). Matches
@@ -114,6 +178,7 @@ pub fn parse_output<T: DeserializeOwned>(json: &str) -> Result<ParsedOutput<T>, 
             message: MessageEnvelope {
                 payload: serde_json::from_value(message.payload)?,
                 kind: message.kind,
+                version: message.version,
                 update_frequency_seconds: message.update_frequency_seconds,
                 sequence: message.sequence,
             },
@@ -124,6 +189,7 @@ pub fn parse_output<T: DeserializeOwned>(json: &str) -> Result<ParsedOutput<T>, 
             message: MessageEnvelope {
                 payload: serde_json::from_value(message.payload)?,
                 kind: message.kind,
+                version: message.version,
                 update_frequency_seconds: message.update_frequency_seconds,
                 sequence: message.sequence,
             },
@@ -144,6 +210,7 @@ pub(crate) mod test_support {
     const SCHEMA_RESOURCES: &[(&str, &str)] = &[
         ("urn:fxv:schema:changeinfo:v1", "changeinfo.schema.json"),
         ("urn:fxv:schema:common:v1", "common.schema.json"),
+        ("urn:fxv:schema:doctor:v1", "doctor.schema.json"),
         ("urn:fxv:schema:error:v1", "error.schema.json"),
         ("urn:fxv:schema:history:v1", "history.schema.json"),
         ("urn:fxv:schema:init:v1", "init.schema.json"),
@@ -179,6 +246,7 @@ pub(crate) mod test_support {
             program: sample_program_metadata(),
             message: super::MessageEnvelope {
                 kind: kind.to_string(),
+                version: super::MessageVersion::new(1, 0),
                 update_frequency_seconds: None,
                 sequence: None,
                 payload,
@@ -249,6 +317,7 @@ mod tests {
             program: sample_program_metadata(),
             message: MessageEnvelope {
                 kind: "error".to_string(),
+                version: MessageVersion::new(1, 0),
                 update_frequency_seconds: None,
                 sequence: None,
                 payload: ErrorJson {
@@ -276,6 +345,7 @@ mod tests {
             program: sample_program_metadata(),
             message: MessageEnvelope {
                 kind: "login".to_string(),
+                version: MessageVersion::new(1, 0),
                 update_frequency_seconds: None,
                 sequence: None,
                 payload: crate::v1::login::LoginJson {

@@ -9,10 +9,14 @@
 //! Deliberate differences from the CLI-side structs, which are serialize-only:
 //! - Every type here also derives `Deserialize`, `Debug`, `Clone`, and `PartialEq`.
 //! - `&'static str` fields became real enums: [`common::CommitType`], [`user::UserAction`],
-//!   [`change_info::FileChangeAction`]; `ProgramMetadata`'s `name`/`version` became `String`.
+//!   [`change_info::FileChangeAction`], [`doctor::DoctorCheckStatus`]; `ProgramMetadata`'s `name`/`version` became
+//!   `String`.
+//! - `message.version` is an [`envelope::MessageVersion`] that parses the CLI's `"major.minor"` string, rather than the
+//!   CLI's write-only equivalent.
 
 pub mod change_info;
 pub mod common;
+pub mod doctor;
 pub mod envelope;
 pub mod history;
 pub mod init;

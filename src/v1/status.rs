@@ -11,6 +11,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct StatusJson {
     pub current_branch: String,
+    /// Username of the user logged in to this workspace via `fxv login`; absent when logged out.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub current_user: Option<String>,
     pub head_commit: HeadCommitJson,
     /// Present only for parented drafts (absent for an empty branch or unparented draft).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -75,6 +78,7 @@ mod tests {
     fn sample_status() -> StatusJson {
         StatusJson {
             current_branch: "main".to_string(),
+            current_user: Some("alice".to_string()),
             head_commit: HeadCommitJson::ParentedDraft {
                 local_snapshot: Box::new(sample_draft_commit_ref("main", Some(4), 2)),
                 published_head: Box::new(sample_commit_ref("main", 6)),
@@ -121,6 +125,7 @@ mod tests {
     fn test_empty_branch_head_validates() {
         let payload = StatusJson {
             current_branch: "main".to_string(),
+            current_user: None,
             head_commit: HeadCommitJson::EmptyBranch {
                 branch: "main".to_string(),
             },
@@ -137,20 +142,31 @@ mod tests {
     }
 
     #[test]
-    fn test_commit_ref_timestamp_round_trips_and_validates() {
-        // `timestamp` is being added to status's local_snapshot/published_head by the CLI in a
-        // parallel change; the schema and struct must accept it (and omit it when absent).
-        let mut payload = sample_status();
-        if let HeadCommitJson::ParentedDraft { published_head, .. } = &mut payload.head_commit {
-            published_head.timestamp = Some(1700000000000);
-        }
+    fn test_commit_ref_timestamp_field_name() {
+        // The timestamp is a mandatory part of every commit reference, under the descriptive name
+        // the CLI renamed it to; a consumer reading the old `timestamp` key would find nothing.
+        let payload = sample_status();
         let json = assert_payload_validates("status", &payload);
-        let parsed: StatusJson = serde_json::from_value(json["message"]["payload"].clone()).unwrap();
-        assert_eq!(parsed, payload);
 
         let head = &json["message"]["payload"]["head_commit"];
-        assert_eq!(head["published_head"]["timestamp"], 1700000000000i64);
-        assert!(head["local_snapshot"].get("timestamp").is_none());
+        for commit_ref in ["local_snapshot", "published_head"] {
+            assert!(
+                head[commit_ref]["timestamp_millis_since_epoch_utc"].is_i64(),
+                "{commit_ref} is missing its timestamp"
+            );
+            assert!(head[commit_ref].get("timestamp").is_none());
+        }
+    }
+
+    #[test]
+    fn test_current_user_omitted_when_logged_out() {
+        let mut payload = sample_status();
+        payload.current_user = None;
+        let json = serde_json::to_value(&payload).unwrap();
+        assert!(json.get("current_user").is_none());
+
+        let parsed: StatusJson = serde_json::from_value(json).unwrap();
+        assert_eq!(parsed.current_user, None);
     }
 
     #[test]

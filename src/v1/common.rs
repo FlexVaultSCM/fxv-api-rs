@@ -4,25 +4,28 @@
 // == External crates
 use serde::{Deserialize, Serialize};
 
-/// A commit reference with its hash and resolved author. Shared by every command that surfaces a
-/// commit in its JSON output (`status`, `history`, `changeinfo`), corresponding to the `commitRef`
-/// definition in `common.schema.json`. `commit_hash` is optional so `history` (which has never
-/// included it) can keep omitting it without a schema/behavior change.
+/// A commit reference: where the commit sits on its branch, plus everything about the commit itself
+/// a consumer normally wants (description, timestamp, resolved author, import provenance). Shared by
+/// every command that surfaces a commit in its JSON output (`status`, `history`, `changeinfo`,
+/// `sync`/`goto`/`resolve`/`revert`), corresponding to the `commitRef` definition in
+/// `common.schema.json`. `commit_hash` is optional so `history` (which has never included it) can
+/// keep omitting it.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct CommitRefJson {
     pub commit: CommitInfoJson,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub commit_hash: Option<String>,
+    /// Commit description, omitted when the commit was made without one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Commit timestamp in milliseconds since the epoch (UTC). For an imported commit this is the
+    /// original authoring time, not when the import ran.
+    pub timestamp_millis_since_epoch_utc: i64,
     pub author_id: String,
     pub author_display_name: String,
     pub author_details: AuthorDisplayInfo,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub import_info: Option<ImportInfoDisplay>,
-    /// Commit timestamp in milliseconds since the Unix epoch. Being added to the CLI's status
-    /// output (on `local_snapshot`/`published_head`) in parallel — optional so both sides can
-    /// land independently.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub timestamp: Option<i64>,
 }
 
 /// Identifies a revision on a branch: `main.4` published, `main.4.2` draft, `main.-.2` unparented
@@ -166,6 +169,8 @@ pub(crate) mod test_support {
                 draft_revision: None,
             },
             commit_hash: None,
+            description: Some("Add feature X".to_string()),
+            timestamp_millis_since_epoch_utc: 1700000000000,
             author_id: "user:1".to_string(),
             author_display_name: "Alice".to_string(),
             author_details: AuthorDisplayInfo::FxvUser {
@@ -174,7 +179,6 @@ pub(crate) mod test_support {
                 display_name: "Alice".to_string(),
             },
             import_info: None,
-            timestamp: None,
         }
     }
 
@@ -187,6 +191,8 @@ pub(crate) mod test_support {
                 draft_revision: Some(draft_revision),
             },
             commit_hash: Some("00".repeat(32)),
+            description: None,
+            timestamp_millis_since_epoch_utc: 1699999000000,
             author_id: "user:1".to_string(),
             author_display_name: "Alice".to_string(),
             author_details: AuthorDisplayInfo::FxvUser {
@@ -195,7 +201,6 @@ pub(crate) mod test_support {
                 display_name: "Alice".to_string(),
             },
             import_info: None,
-            timestamp: None,
         }
     }
 }

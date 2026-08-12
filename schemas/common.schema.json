@@ -47,14 +47,22 @@
       "description": "The kind of change to a file. 'maybe_changed' only arises on a workspace-axis change."
     },
     "commitRef": {
+      "description": "A commit reference on its own: the commitRefFields, with nothing else permitted. Use this wherever a commit reference is a whole value (a history entry, status's head commits, a created revision).",
+      "allOf": [
+        { "$ref": "#/$defs/commitRefFields" }
+      ],
+      "unevaluatedProperties": false
+    },
+    "commitRefFields": {
+      "description": "The fields of a commit reference: where the commit sits on its branch, plus the commit's own description, timestamp, author and import provenance. Deliberately NOT sealed, so a payload that flattens a commit reference alongside its own fields (changeinfo) can compose this under allOf and seal the result with unevaluatedProperties. Reference `commitRef` instead unless you are doing exactly that.",
       "type": "object",
       "required": [
         "commit",
+        "timestamp_millis_since_epoch_utc",
         "author_id",
         "author_display_name",
         "author_details"
       ],
-      "additionalProperties": false,
       "properties": {
         "commit": {
           "$ref": "#/$defs/commitInfo"
@@ -62,6 +70,14 @@
         "commit_hash": {
           "type": "string",
           "description": "Hex-encoded commit hash. Omitted where the caller doesn't have one to hand (e.g. `history`)."
+        },
+        "description": {
+          "type": "string",
+          "description": "Commit description, omitted when the commit was made without one."
+        },
+        "timestamp_millis_since_epoch_utc": {
+          "type": "integer",
+          "description": "Commit timestamp in milliseconds since the epoch (UTC). For an imported commit this is the original authoring time, not when the import ran."
         },
         "author_id": {
           "type": "string",
@@ -77,10 +93,6 @@
         "import_info": {
           "$ref": "#/$defs/importInfo",
           "description": "Source-specific import provenance, present only for imported commits."
-        },
-        "timestamp": {
-          "type": "integer",
-          "description": "Commit timestamp in milliseconds since the Unix epoch. Optional while support rolls out."
         }
       }
     },
@@ -108,10 +120,7 @@
           "description": "Conflict details for the file if a conflict exists; present only when the file has a conflict."
         },
         "size": {
-          "type": [
-            "integer",
-            "null"
-          ],
+          "type": ["integer", "null"],
           "minimum": 0,
           "description": "File size in bytes, if available."
         }
@@ -126,105 +135,53 @@
       "oneOf": [
         {
           "additionalProperties": false,
-          "required": [
-            "type"
-          ],
+          "required": ["type"],
           "properties": {
-            "type": {
-              "const": "Local"
-            }
+            "type": { "const": "Local" }
           }
         },
         {
           "additionalProperties": false,
-          "required": [
-            "type"
-          ],
+          "required": ["type"],
           "properties": {
-            "type": {
-              "const": "Service"
-            }
+            "type": { "const": "Service" }
           }
         },
         {
           "additionalProperties": false,
-          "required": [
-            "type",
-            "id",
-            "username",
-            "display_name"
-          ],
+          "required": ["type", "id", "username", "display_name"],
           "properties": {
-            "type": {
-              "const": "FxvUser"
-            },
-            "id": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "username": {
-              "type": "string"
-            },
-            "display_name": {
-              "type": "string"
-            }
+            "type": { "const": "FxvUser" },
+            "id": { "type": "integer", "minimum": 0 },
+            "username": { "type": "string" },
+            "display_name": { "type": "string" }
           }
         },
         {
           "additionalProperties": false,
-          "required": [
-            "type",
-            "name",
-            "email"
-          ],
+          "required": ["type", "name", "email"],
           "properties": {
-            "type": {
-              "const": "GitUser"
-            },
-            "name": {
-              "type": "string"
-            },
-            "email": {
-              "type": "string"
-            }
+            "type": { "const": "GitUser" },
+            "name": { "type": "string" },
+            "email": { "type": "string" }
           }
         },
         {
           "additionalProperties": false,
-          "required": [
-            "type",
-            "username",
-            "email",
-            "display_name"
-          ],
+          "required": ["type", "username", "email", "display_name"],
           "properties": {
-            "type": {
-              "const": "P4User"
-            },
-            "username": {
-              "type": "string"
-            },
-            "email": {
-              "type": "string"
-            },
-            "display_name": {
-              "type": "string"
-            }
+            "type": { "const": "P4User" },
+            "username": { "type": "string" },
+            "email": { "type": "string" },
+            "display_name": { "type": "string" }
           }
         },
         {
           "additionalProperties": false,
-          "required": [
-            "type",
-            "message"
-          ],
+          "required": ["type", "message"],
           "properties": {
-            "type": {
-              "const": "Error"
-            },
-            "message": {
-              "type": "string"
-            }
+            "type": { "const": "Error" },
+            "message": { "type": "string" }
           }
         }
       ]
@@ -238,57 +195,23 @@
       "oneOf": [
         {
           "additionalProperties": false,
-          "required": [
-            "type",
-            "commit_hash"
-          ],
+          "required": ["type", "commit_hash"],
           "properties": {
-            "type": {
-              "const": "Git"
-            },
-            "commit_hash": {
-              "type": "string"
-            },
-            "repo_id": {
-              "type": [
-                "string",
-                "null"
-              ]
-            }
+            "type": { "const": "Git" },
+            "commit_hash": { "type": "string" },
+            "repo_id": { "type": ["string", "null"] }
           }
         },
         {
           "additionalProperties": false,
-          "required": [
-            "type",
-            "changelist",
-            "user_name",
-            "client_workspace",
-            "depot_path"
-          ],
+          "required": ["type", "changelist", "user_name", "client_workspace", "depot_path"],
           "properties": {
-            "type": {
-              "const": "Perforce"
-            },
-            "changelist": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "user_name": {
-              "type": "string"
-            },
-            "client_workspace": {
-              "type": "string"
-            },
-            "depot_path": {
-              "type": "string"
-            },
-            "stream": {
-              "type": [
-                "string",
-                "null"
-              ]
-            }
+            "type": { "const": "Perforce" },
+            "changelist": { "type": "integer", "minimum": 0 },
+            "user_name": { "type": "string" },
+            "client_workspace": { "type": "string" },
+            "depot_path": { "type": "string" },
+            "stream": { "type": ["string", "null"] }
           }
         }
       ]

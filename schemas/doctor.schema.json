@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:doctor:v1",
+  "title": "fxv doctor command payload",
+  "description": "Payload schema for the `fxv doctor` and `fxv doctor bundle` commands' JSON output.",
+  "type": "object",
+  "required": [
+    "checks",
+    "summary"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "checks": {
+      "type": "array",
+      "description": "One entry per diagnostic check that was run or skipped, in catalog order.",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "group",
+          "name",
+          "status",
+          "detail"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Stable machine identifier for this check, e.g. 'workspace.lock'."
+          },
+          "group": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Which check group this belongs to, e.g. 'environment', 'agent', 'workspace', 'repo'."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Human-readable label for this check."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "warn",
+              "fail",
+              "skipped"
+            ],
+            "description": "Outcome of this check."
+          },
+          "detail": {
+            "type": "string",
+            "description": "One-line explanation of the check's outcome."
+          },
+          "fix_hint": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Suggested remediation, present when the check is actionable (warn/fail)."
+          },
+          "fixed": {
+            "type": "boolean",
+            "description": "Present only when --fix ran: whether a remediation was actually applied to this check."
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "description": "Counts of checks by outcome across the whole run.",
+      "required": [
+        "ok",
+        "warn",
+        "fail",
+        "skipped"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "ok": { "type": "integer", "minimum": 0 },
+        "warn": { "type": "integer", "minimum": 0 },
+        "fail": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "bundle": {
+      "type": "object",
+      "description": "Present only for `fxv doctor bundle`: the archive that was written.",
+      "required": [
+        "path",
+        "size_bytes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "size_bytes": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

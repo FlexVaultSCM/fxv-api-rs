@@ -11,49 +11,8 @@
   "properties": {
     "entries": {
       "type": "array",
-      "items": { "$ref": "#/$defs/historyEntry" }
-    }
-  },
-  "$defs": {
-    "historyEntry": {
-      "type": "object",
-      "required": [
-        "commit",
-        "author_id",
-        "author_display_name",
-        "author_details",
-        "timestamp_millis"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "commit": {
-          "$ref": "urn:fxv:schema:common:v1#/$defs/commitInfo"
-        },
-        "description": {
-          "type": "string",
-          "description": "Commit description, if present."
-        },
-        "author_id": {
-          "type": "string",
-          "description": "Stable display identifier for the author (e.g. \"user:3\", \"git:foo@bar\")."
-        },
-        "author_display_name": {
-          "type": "string",
-          "description": "Human-readable author display name."
-        },
-        "author_details": {
-          "$ref": "urn:fxv:schema:common:v1#/$defs/authorDetails",
-          "description": "Structured, internally-tagged author information."
-        },
-        "import_info": {
-          "$ref": "urn:fxv:schema:common:v1#/$defs/importInfo",
-          "description": "Source-specific import provenance, present only for imported commits."
-        },
-        "timestamp_millis": {
-          "type": "integer",
-          "description": "Commit timestamp in milliseconds since epoch (UTC)."
-        }
-      }
+      "description": "The commits in the requested history, newest first. A history entry carries nothing beyond the commit reference itself, so entries are plain commitRefs.",
+      "items": { "$ref": "urn:fxv:schema:common:v1#/$defs/commitRef" }
     }
   }
 }

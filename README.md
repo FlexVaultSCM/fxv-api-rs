@@ -4,7 +4,7 @@ FlexVault is a turbocharged, user-friendly source control management system. Thi
 
 The `fxv` CLI emits a JSON envelope on stdout for supported commands when invoked with `--format json`. This crate provides:
 
-- **Typed payloads** (`v1` module): serde `Serialize`/`Deserialize` structs mirroring every JSON-capable command's output — `status`, `history`, `changeinfo`, `init`, `login`, `logout`, `user add/edit/deactivate`, and the `sync`/`goto`/`resolve`/`revert` family — plus the envelope itself and the `error` payload.
+- **Typed payloads** (`v1` module): serde `Serialize`/`Deserialize` structs mirroring every JSON-capable command's output — `status`, `history`, `changeinfo`, `init`, `login`, `logout`, `user add/edit/deactivate`, `doctor`, and the `sync`/`goto`/`resolve`/`revert` family — plus the envelope itself and the `error` payload.
 - **`v1::envelope::parse_output<T>()`**: parses one stdout envelope, discriminating success from a CLI-reported error (`message.kind == "error"`).
 - **JSON Schemas** (`schemas/`): the authoritative contract, copied from `fxv-core/crates/fxv_cli/schemas/`. Tests validate every type against them, and `tests/fixtures/` holds envelopes captured from a real `fxv` binary that must round-trip value-identically.
 - **`common::RelativePath`**: a normalized, `/`-separated, workspace-relative path newtype with component-wise ordering.

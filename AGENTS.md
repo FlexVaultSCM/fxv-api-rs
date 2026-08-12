@@ -12,7 +12,7 @@ History: v0.1 of this crate was a hand-designed mock workspace API (`WorkspaceAp
 
 The structs in `src/v1/` are **duplicated by hand** from `fxv-core`:
 
-- `fxv-core/crates/fxv_cli/src/view/{json_envelope,commit_info_json,status,history_json,change_info_json,init,login,logout,manage_user,workspace_sync}.rs`
+- `fxv-core/crates/fxv_cli/src/view/{json_envelope,commit_info_json,status,history_json,change_info_json,doctor,init,login,logout,manage_user,workspace_sync}.rs`
 - `fxv-core/crates/fxv_cli_ux/src/{author_resolver,import_info}.rs` (`AuthorDisplayInfo`, `ImportInfoDisplay`)
 
 `schemas/*.schema.json` is likewise a copy of `fxv-core/crates/fxv_cli/schemas/`. **Any change to the CLI's JSON output must be mirrored here, and vice versa**, until fxv-core is converted to depend on this crate (planned, not started). Both repos validate against their own schema copy in tests, so drift shows up as a test failure on whichever side changed — but only if the schemas are re-copied. When syncing, copy the schema files verbatim.
@@ -20,7 +20,7 @@ The structs in `src/v1/` are **duplicated by hand** from `fxv-core`:
 Deliberate differences from the CLI-side structs (which are serialize-only):
 
 - Everything here also derives `Deserialize`, `Debug`, `Clone`, `PartialEq`.
-- CLI `&'static str` fields are real enums here: `common::CommitType`, `user::UserAction`, `change_info::FileChangeAction`. `ProgramMetadata.name/version` are `String`.
+- CLI `&'static str` fields are real enums here: `common::CommitType`, `user::UserAction`, `change_info::FileChangeAction`, `doctor::DoctorCheckStatus`. `ProgramMetadata.name/version` are `String`, and `MessageEnvelope.version` is a `MessageVersion` that parses the CLI's `"major.minor"` string.
 - `Vec` fields the CLI omits when empty carry `#[serde(default)]` so they parse back.
 
 ## Layout
@@ -28,14 +28,16 @@ Deliberate differences from the CLI-side structs (which are serialize-only):
 - `src/common.rs` — `RelativePath`, a normalized `/`-separated workspace-relative path newtype with component-wise ordering (deliberate: byte order mis-sorts; see its tests). Survives from v0.1.
 - `src/v1/envelope.rs` — `OutputEnvelope<T>`/`MessageEnvelope<T>`/`ProgramMetadata`, `ErrorJson`, `ExitCode` (0/1/99 = ok/general/workspace-locked), and `parse_output<T>()` which discriminates success from `kind == "error"`. Also `#[cfg(test)] test_support` with the schema validator used by every module's tests.
 - `src/v1/common.rs` — shared payload types (`CommitRefJson`, `CommitInfoJson`, `AuthorDisplayInfo`, `ImportInfoDisplay`, `FileStatusJson`, `ChangeKind`) matching `common.schema.json`'s `$defs`.
-- `src/v1/{status,history,change_info,init,login,logout,user,workspace_sync}.rs` — one module per command payload. `workspace_sync` is shared by the kinds `sync`/`goto`/`resolve`/`revert`.
+- `src/v1/{status,history,change_info,doctor,init,login,logout,user,workspace_sync}.rs` — one module per command payload. `workspace_sync` is shared by the kinds `sync`/`goto`/`resolve`/`revert`.
 - `tests/fixtures/*.json` + `tests/fixture_test.rs` — envelopes captured from a real `fxv` binary, parsed with the typed structs.
 
 ## Wire-format facts that bite
 
-- There is no success flag and no schema-version field; success vs. error is `message.kind == "error"` plus the process exit code. Error envelopes go to **stdout**, like successes.
+- There is no success flag; success vs. error is `message.kind == "error"` plus the process exit code. Error envelopes go to **stdout**, like successes.
+- `message.version` is the payload schema's `major.minor` version **on that `kind`'s own timeline**, not a global one — every kind is at `1.0` today. It is a string so `1.10` can't be read as `1.1`; `MessageVersion` parses it. On the CLI side each payload's `VersionedJsonMessage::version()` supplies it, and fxv-core's `cargo insta` snapshots fail if a payload's shape moves without the version moving.
 - The envelope schema's payload `oneOf` requires payload shapes to be mutually exclusive across commands — that is why `LogoutJson` always carries `was_logged_in` (else it would collide with `LoginJson`). Keep new payloads unambiguous.
-- All schemas use `additionalProperties: false`; the drift-guard test in `history.rs` asserts an extra field fails validation. Don't weaken either.
+- Schemas are sealed against extra fields (`additionalProperties: false`, or `unevaluatedProperties: false` where an `allOf` composes `commitRefFields`); the drift-guard test in `history.rs` asserts an extra field fails validation. Don't weaken either.
+- A commit reference comes in two schema flavours: `commitRef` is the sealed whole-value form (history entries, status's head commits, sync's created revisions); `commitRefFields` is the deliberately unsealed form that `changeinfo` composes under `allOf` because it flattens the reference alongside its own fields. Both map to the one `CommitRefJson`.
 - `history` entries never include `commit_hash` even though `CommitRefJson` has the field — the schema rejects it there.
 - `CommitInfoJson.revision: None` means an *unparented* draft (spec `main.-.N`), distinct from revision 0.
 - Paths in payloads are always `/`-separated, normalized by the CLI on every platform.
@@ -44,7 +46,7 @@ Deliberate differences from the CLI-side structs (which are serialize-only):
 
 ## JSON-capable commands (as of fxv-core 2026-08)
 
-`status`, `history`, `changeinfo`, `init`, `login`, `logout`, `user add/edit/deactivate`, `sync`, `goto`, `resolve`, `revert`, plus the `error` envelope. **Not** JSON-capable: `publish`, `snapshot`, `diff`, `clone`, `branch`, `repo *`, `util *`.
+`status`, `history`, `changeinfo`, `init`, `login`, `logout`, `user add/edit/deactivate`, `sync`, `goto`, `resolve`, `revert`, `doctor` (and `doctor bundle`, same `doctor` kind), plus the `error` envelope. **Not** JSON-capable: `publish`, `snapshot`, `diff`, `clone`, `branch`, `repo *`, `util *`.
 
 ## Build & style
 

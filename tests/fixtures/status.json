@@ -1,7 +1,7 @@
 {
   "program": {
     "name": "fxv",
-    "version": "0.1.0",
+    "version": "0.4.0",
     "executable": "/home/devuser/workspace/fxv-core/target/debug/fxv",
     "arguments": [
       "/home/devuser/workspace/fxv-core/target/debug/fxv",
@@ -11,12 +11,13 @@
       "--no-color",
       "--unattended"
     ],
-    "invoked_at": "2026-08-03T04:43:51.676894861Z",
-    "pid": 55117,
-    "working_directory": "/tmp/claude-1000/-home-devuser-workspace-fxv-desktop/cf85e58a-8a71-4d44-8ead-3ff9b7e22e1f/scratchpad/fixtures_run/ws"
+    "invoked_at": "2026-08-11T23:45:20.372943567Z",
+    "pid": 416971,
+    "working_directory": "/tmp/claude-1000/-home-devuser-workspace-fxv-api-rs/b885df25-77f5-411d-b869-57b026e5d7ea/scratchpad/fixtures_run/ws"
   },
   "message": {
     "kind": "status",
+    "version": "1.0",
     "payload": {
       "current_branch": "main",
       "head_commit": {
@@ -27,7 +28,9 @@
             "type": "draft",
             "draft_revision": 1
           },
-          "commit_hash": "8e84c7bb097d9c1a35f80009550551b355ec14dd55647a7434fe9aa75d90ae99",
+          "commit_hash": "2aae3a0c59ca37287f3224265ea436f767926e58e40f34b6b62a1e6480226f61",
+          "description": "first snapshot",
+          "timestamp_millis_since_epoch_utc": 1786491920121,
           "author_id": "local",
           "author_display_name": "(local user)",
           "author_details": {

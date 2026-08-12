@@ -16,6 +16,10 @@
       "type": "string",
       "description": "Name of the workspace's current branch."
     },
+    "current_user": {
+      "type": "string",
+      "description": "Username of the user currently logged in to this workspace via `fxv login`, if any. Absent when logged out."
+    },
     "head_commit": {
       "$ref": "#/$defs/headCommit"
     },

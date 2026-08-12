@@ -31,6 +31,7 @@ fn build_envelope_validator() -> Validator {
     const SCHEMA_RESOURCES: &[(&str, &str)] = &[
         ("urn:fxv:schema:changeinfo:v1", "changeinfo.schema.json"),
         ("urn:fxv:schema:common:v1", "common.schema.json"),
+        ("urn:fxv:schema:doctor:v1", "doctor.schema.json"),
         ("urn:fxv:schema:error:v1", "error.schema.json"),
         ("urn:fxv:schema:history:v1", "history.schema.json"),
         ("urn:fxv:schema:init:v1", "init.schema.json"),

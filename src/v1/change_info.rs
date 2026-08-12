@@ -12,10 +12,6 @@ use serde::{Deserialize, Serialize};
 pub struct ChangeInfoOutputJson {
     #[serde(flatten)]
     pub commit_ref: CommitRefJson,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    /// Commit timestamp in milliseconds since the Unix epoch.
-    pub timestamp_millis: i64,
     pub summary: ChangeSummaryJson,
     pub changes: Vec<FileChangeJson>,
 }
@@ -62,8 +58,6 @@ mod tests {
     fn test_changeinfo_round_trip_and_schema() {
         let payload = ChangeInfoOutputJson {
             commit_ref: sample_draft_commit_ref("main", Some(4), 1),
-            description: Some("Tweak shaders".to_string()),
-            timestamp_millis: 1700000000000,
             summary: ChangeSummaryJson {
                 total_changed: 2,
                 added: 1,

@@ -69,6 +69,7 @@
       "description": "Envelope containing the command's output payload and task progress indicators.",
       "required": [
         "kind",
+        "version",
         "payload"
       ],
       "additionalProperties": false,
@@ -77,6 +78,11 @@
           "type": "string",
           "pattern": "^[a-z]+(-[a-z]+)*$",
           "description": "Identifies the command that produced this message: the dash-joined CLI command path (e.g. 'status', 'user-add'). A final message uses the bare command kind; an interim progress message uses the same kind with a '-progress' suffix. The reserved kind 'error' is emitted in place of a command's own message when the command fails, and carries the error payload."
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+          "description": "The payload schema's 'major.minor' version, on this kind's own timeline: the minor is bumped for an additive change, the major for anything a consumer could break on. A string rather than a number, so 1.10 is not confused with 1.1. Every kind starts at '1.0'."
         },
         "update_frequency_seconds": {
           "type": "number",
@@ -92,6 +98,7 @@
           "description": "Domain specific data emitted by the command. Extend this schema with $ref to constrain the structure as needed.",
           "oneOf": [
             { "$ref": "urn:fxv:schema:changeinfo:v1" },
+            { "$ref": "urn:fxv:schema:doctor:v1" },
             { "$ref": "urn:fxv:schema:error:v1" },
             { "$ref": "urn:fxv:schema:history:v1" },
             { "$ref": "urn:fxv:schema:init:v1" },
