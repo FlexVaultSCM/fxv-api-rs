@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:login:v1",
+  "title": "fxv login command payload",
+  "description": "Payload schema for the `fxv login` command's JSON output.",
+  "type": "object",
+  "required": [
+    "username"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "username": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The username now logged in to the workspace."
+    }
+  }
+}

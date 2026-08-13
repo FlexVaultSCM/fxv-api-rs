@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:changeinfo:v1",
+  "title": "fxv changeinfo command payload",
+  "description": "Payload schema for the changeinfo command's JSON output: a commit reference (flattened into the payload) plus the change summary and file list.",
+  "type": "object",
+  "allOf": [
+    { "$ref": "urn:fxv:schema:common:v1#/$defs/commitRefFields" },
+    {
+      "required": [
+        "commit_hash",
+        "summary",
+        "changes"
+      ],
+      "properties": {
+        "summary": {
+          "type": "object",
+          "required": [
+            "total_changed",
+            "added",
+            "modified",
+            "deleted"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "total_changed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "added": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "modified": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "deleted": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "changes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "path",
+              "action"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "Workspace-relative path with '/' separators."
+              },
+              "action": {
+                "$ref": "urn:fxv:schema:common:v1#/$defs/changeKind"
+              },
+              "size": {
+                "type": ["integer", "null"],
+                "minimum": 0,
+                "description": "File size in bytes, if available."
+              },
+              "old_hash": {
+                "type": ["string", "null"],
+                "description": "Previous content/tree address before change."
+              },
+              "new_hash": {
+                "type": ["string", "null"],
+                "description": "New content/tree address after change."
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "unevaluatedProperties": false
+}

@@ -1,0 +1,25 @@
+{
+  "program": {
+    "name": "fxv",
+    "version": "0.4.0",
+    "executable": "/home/devuser/workspace/fxv-core/target/debug/fxv",
+    "arguments": [
+      "/home/devuser/workspace/fxv-core/target/debug/fxv",
+      "logout",
+      "--format",
+      "json",
+      "--no-color",
+      "--unattended"
+    ],
+    "invoked_at": "2026-08-11T23:45:20.843122236Z",
+    "pid": 416993,
+    "working_directory": "/tmp/claude-1000/-home-devuser-workspace-fxv-api-rs/b885df25-77f5-411d-b869-57b026e5d7ea/scratchpad/fixtures_run/ws"
+  },
+  "message": {
+    "kind": "logout",
+    "version": "1.0",
+    "payload": {
+      "was_logged_in": false
+    }
+  }
+}

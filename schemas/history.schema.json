@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:history:v1",
+  "title": "fxv history command payload",
+  "description": "Payload schema for the history command's JSON output.",
+  "type": "object",
+  "required": [
+    "entries"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "entries": {
+      "type": "array",
+      "description": "The commits in the requested history, newest first. A history entry carries nothing beyond the commit reference itself, so entries are plain commitRefs.",
+      "items": { "$ref": "urn:fxv:schema:common:v1#/$defs/commitRef" }
+    }
+  }
+}

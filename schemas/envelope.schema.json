@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:envelope:v1",
+  "title": "fxv cli json output format",
+  "description": "Schema describing the structured output emitted by the flexvault content, including program metadata and task progress details.",
+  "type": "object",
+  "required": [
+    "program",
+    "message"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "program": {
+      "type": "object",
+      "description": "Metadata about the command line utility producing this output.",
+      "required": [
+        "name",
+        "version",
+        "executable",
+        "arguments",
+        "invoked_at"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human readable name of the program."
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Program version identifier."
+        },
+        "executable": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Fully qualified executable path or command name."
+        },
+        "arguments": {
+          "type": "array",
+          "description": "Ordered argument vector used for this invocation.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "invoked_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp capturing when the program was launched."
+        },
+        "hostname": {
+          "type": "string",
+          "description": "Host on which the program is executing."
+        },
+        "pid": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Operating system process identifier, if available."
+        },
+        "working_directory": {
+          "type": "string",
+          "description": "Directory from which the command was executed."
+        }
+      }
+    },
+    "message": {
+      "type": "object",
+      "description": "Envelope containing the command's output payload and task progress indicators.",
+      "required": [
+        "kind",
+        "version",
+        "payload"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "pattern": "^[a-z]+(-[a-z]+)*$",
+          "description": "Identifies the command that produced this message: the dash-joined CLI command path (e.g. 'status', 'user-add'). A final message uses the bare command kind; an interim progress message uses the same kind with a '-progress' suffix. The reserved kind 'error' is emitted in place of a command's own message when the command fails, and carries the error payload."
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+          "description": "The payload schema's 'major.minor' version, on this kind's own timeline: the minor is bumped for an additive change, the major for anything a consumer could break on. A string rather than a number, so 1.10 is not confused with 1.1. Every kind starts at '1.0'."
+        },
+        "update_frequency_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Expected cadence, in seconds, for subsequent updates when the task is ongoing."
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Monotonic identifier that orders progress messages for long running tasks."
+        },
+        "payload": {
+          "description": "Domain specific data emitted by the command. Extend this schema with $ref to constrain the structure as needed.",
+          "oneOf": [
+            { "$ref": "urn:fxv:schema:changeinfo:v1" },
+            { "$ref": "urn:fxv:schema:doctor:v1" },
+            { "$ref": "urn:fxv:schema:error:v1" },
+            { "$ref": "urn:fxv:schema:history:v1" },
+            { "$ref": "urn:fxv:schema:init:v1" },
+            { "$ref": "urn:fxv:schema:login:v1" },
+            { "$ref": "urn:fxv:schema:logout:v1" },
+            { "$ref": "urn:fxv:schema:status:v1" },
+            { "$ref": "urn:fxv:schema:user:v1" },
+            { "$ref": "urn:fxv:schema:workspace-sync:v1" }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "pattern": "-progress$"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "update_frequency_seconds",
+              "sequence"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "error"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "payload": {
+                "$ref": "urn:fxv:schema:error:v1"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

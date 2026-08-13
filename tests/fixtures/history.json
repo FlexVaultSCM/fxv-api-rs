@@ -1,0 +1,40 @@
+{
+  "program": {
+    "name": "fxv",
+    "version": "0.4.0",
+    "executable": "/home/devuser/workspace/fxv-core/target/debug/fxv",
+    "arguments": [
+      "/home/devuser/workspace/fxv-core/target/debug/fxv",
+      "history",
+      "--format",
+      "json",
+      "--no-color",
+      "--unattended"
+    ],
+    "invoked_at": "2026-08-11T23:45:20.523915217Z",
+    "pid": 416988,
+    "working_directory": "/tmp/claude-1000/-home-devuser-workspace-fxv-api-rs/b885df25-77f5-411d-b869-57b026e5d7ea/scratchpad/fixtures_run/ws"
+  },
+  "message": {
+    "kind": "history",
+    "version": "1.0",
+    "payload": {
+      "entries": [
+        {
+          "commit": {
+            "branch": "main",
+            "type": "draft",
+            "draft_revision": 1
+          },
+          "description": "first snapshot",
+          "timestamp_millis_since_epoch_utc": 1786491920121,
+          "author_id": "local",
+          "author_display_name": "(local user)",
+          "author_details": {
+            "type": "Local"
+          }
+        }
+      ]
+    }
+  }
+}

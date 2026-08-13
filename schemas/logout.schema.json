@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:logout:v1",
+  "title": "fxv logout command payload",
+  "description": "Payload schema for the `fxv logout` command's JSON output.",
+  "type": "object",
+  "required": [
+    "was_logged_in"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "was_logged_in": {
+      "type": "boolean",
+      "description": "Whether the workspace had a user logged in before this logout."
+    },
+    "username": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The username that was logged out. Present if and only if was_logged_in is true."
+    }
+  }
+}

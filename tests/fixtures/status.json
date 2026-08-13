@@ -1,0 +1,65 @@
+{
+  "program": {
+    "name": "fxv",
+    "version": "0.4.0",
+    "executable": "/home/devuser/workspace/fxv-core/target/debug/fxv",
+    "arguments": [
+      "/home/devuser/workspace/fxv-core/target/debug/fxv",
+      "status",
+      "--format",
+      "json",
+      "--no-color",
+      "--unattended"
+    ],
+    "invoked_at": "2026-08-11T23:45:20.372943567Z",
+    "pid": 416971,
+    "working_directory": "/tmp/claude-1000/-home-devuser-workspace-fxv-api-rs/b885df25-77f5-411d-b869-57b026e5d7ea/scratchpad/fixtures_run/ws"
+  },
+  "message": {
+    "kind": "status",
+    "version": "1.0",
+    "payload": {
+      "current_branch": "main",
+      "head_commit": {
+        "state": "unparented_draft",
+        "local_snapshot": {
+          "commit": {
+            "branch": "main",
+            "type": "draft",
+            "draft_revision": 1
+          },
+          "commit_hash": "2aae3a0c59ca37287f3224265ea436f767926e58e40f34b6b62a1e6480226f61",
+          "description": "first snapshot",
+          "timestamp_millis_since_epoch_utc": 1786491920121,
+          "author_id": "local",
+          "author_display_name": "(local user)",
+          "author_details": {
+            "type": "Local"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "assets/logo.png",
+          "unpublished_state": "added",
+          "size": 4
+        },
+        {
+          "path": "newfile.txt",
+          "workspace_state": "added"
+        },
+        {
+          "path": "readme.txt",
+          "unpublished_state": "added",
+          "workspace_state": "modified",
+          "size": 6
+        }
+      ],
+      "file_change_counts": {
+        "total": 3,
+        "unpublished": 2,
+        "workspace_need_snapshot": 2
+      }
+    }
+  }
+}
