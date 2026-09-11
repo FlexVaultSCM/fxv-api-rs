@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:upgrade:v1",
+  "title": "fxv upgrade command payload",
+  "description": "Payload schema for the `fxv upgrade` command's JSON output.",
+  "type": "object",
+  "required": [
+    "upgraded",
+    "previous_version",
+    "latest_version",
+    "critical"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "upgraded": {
+      "type": "boolean",
+      "description": "Whether the binary was actually replaced. False means the running binary was already the latest release."
+    },
+    "previous_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The version that was running before this command executed."
+    },
+    "latest_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The newest available release version. When upgraded is false, this is normally equal to previous_version, but can be lower if the running binary is newer than the latest published release (e.g. a local/dev build)."
+    },
+    "critical": {
+      "type": "boolean",
+      "description": "Whether latest_version was flagged as a security or data-integrity fix worth upgrading for promptly."
+    },
+    "message": {
+      "type": ["string", "null"],
+      "description": "Free-text detail about the release, shown alongside a critical notice. Null when absent."
+    }
+  }
+}

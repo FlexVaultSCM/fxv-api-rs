@@ -18,12 +18,44 @@
     "exit_code": {
       "type": "integer",
       "minimum": 1,
-      "description": "The process exit code the CLI returns for this failure. 1 is a general error; 99 means the workspace was locked by another process."
+      "description": "The process exit code the CLI returns for this failure. 1 is a general error; 98 means a previous sync was interrupted and the workspace must be recovered with `fxv resume`; 99 means the workspace was locked by another process."
     },
     "backtrace": {
       "type": "string",
       "minLength": 1,
       "description": "Backtrace captured at the point the error was raised. Present only when backtrace capture was enabled (e.g. RUST_BACKTRACE=1) and a backtrace was available."
+    },
+    "error_data": {
+      "$ref": "#/$defs/errorData",
+      "description": "Machine-readable detail for failures that have some, so a consumer can act without parsing `message`. Absent for most errors."
+    }
+  },
+  "$defs": {
+    "errorData": {
+      "type": "object",
+      "required": [
+        "kind",
+        "version",
+        "payload"
+      ],
+      "additionalProperties": false,
+      "description": "Mirrors the message envelope's kind/version/payload triple, so each error's detail shape is dispatched on and versioned the same way as a top-level message and independently of this envelope.",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Identifies the payload's shape, and therefore which schema describes it. `interrupted-sync` is described by urn:fxv:schema:interrupted-sync:v1."
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+$",
+          "description": "The payload's own major.minor schema version, independent of the error envelope's."
+        },
+        "payload": {
+          "type": "object",
+          "description": "The detail itself; its shape is determined by `kind`."
+        }
+      }
     }
   }
 }

@@ -1,0 +1,56 @@
+{
+  "program": {
+    "name": "fxv",
+    "version": "0.9.0",
+    "executable": "C:\\Users\\dev\\AppData\\Local\\fxv\\bin\\fxv.exe",
+    "arguments": [
+      "C:\\Users\\dev\\AppData\\Local\\fxv\\bin\\fxv.exe",
+      "goto",
+      "main.-.2",
+      "--format",
+      "json",
+      "--unattended",
+      "--no-color"
+    ],
+    "invoked_at": "2026-09-11T21:24:49.6298531Z",
+    "pid": 13888,
+    "working_directory": "C:\\Users\\dev\\fixtures\\ws"
+  },
+  "message": {
+    "kind": "goto",
+    "version": "1.0",
+    "payload": {
+      "target_revision": "main.-.2",
+      "created_revisions": [
+        {
+          "commit": {
+            "branch": "main",
+            "type": "draft",
+            "draft_revision": 5
+          },
+          "commit_hash": "720a0292c3aaa5442b210a8a986935a5c4f16d9403bd50c2e9899db82a05d27b",
+          "timestamp_millis_since_epoch_utc": 1789161889574,
+          "author_id": "local",
+          "author_display_name": "(local user)",
+          "author_details": {
+            "type": "Local"
+          }
+        }
+      ],
+      "files_updated_count": 2,
+      "error_count": 0,
+      "files_updated": [
+        {
+          "path": "a.txt",
+          "workspace_state": "modified",
+          "size": 12
+        },
+        {
+          "path": "c.txt",
+          "workspace_state": "added",
+          "size": 6
+        }
+      ]
+    }
+  }
+}

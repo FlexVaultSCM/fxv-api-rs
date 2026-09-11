@@ -1,0 +1,44 @@
+{
+  "program": {
+    "name": "fxv",
+    "version": "0.9.0",
+    "executable": "C:\\Users\\dev\\AppData\\Local\\fxv\\bin\\fxv.exe",
+    "arguments": [
+      "C:\\Users\\dev\\AppData\\Local\\fxv\\bin\\fxv.exe",
+      "sync",
+      "--format",
+      "json",
+      "--unattended",
+      "--no-color"
+    ],
+    "invoked_at": "2026-09-11T21:24:22.8330781Z",
+    "pid": 17928,
+    "working_directory": "C:\\Users\\dev\\fixtures\\ws"
+  },
+  "message": {
+    "kind": "sync",
+    "version": "1.0",
+    "payload": {
+      "target_revision": "main.-.4",
+      "created_revisions": [
+        {
+          "commit": {
+            "branch": "main",
+            "type": "draft",
+            "draft_revision": 4
+          },
+          "commit_hash": "1a87cd3aa704f2e4cdd6b2ca406217161bd71d48412ea8904e1b3f1d5838cfe3",
+          "timestamp_millis_since_epoch_utc": 1789161862776,
+          "author_id": "local",
+          "author_display_name": "(local user)",
+          "author_details": {
+            "type": "Local"
+          }
+        }
+      ],
+      "files_updated_count": 0,
+      "error_count": 0,
+      "files_updated": []
+    }
+  }
+}

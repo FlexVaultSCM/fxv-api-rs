@@ -118,6 +118,22 @@ pub struct ErrorJson {
     pub exit_code: i32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub backtrace: Option<String>,
+    /// Machine-readable detail for the failures that have any, so a consumer can act without
+    /// parsing `message`. Absent for most errors; `interrupted-sync` (exit code 98) is the only
+    /// kind the CLI emits today.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_data: Option<ErrorData>,
+}
+
+/// Detail riding on an error. Mirrors [`MessageEnvelope`]'s kind/version/payload triple, so a
+/// consumer dispatches on it the same way, and each detail is versioned independently of the error
+/// envelope around it. `payload` stays a raw value, since `kind` decides how to read it, and the
+/// caller deserializes it once it has matched (see [`crate::v1::interrupted_sync`]).
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ErrorData {
+    pub kind: String,
+    pub version: MessageVersion,
+    pub payload: serde_json::Value,
 }
 
 /// Process exit codes the CLI commits to. Mirrors `fxv_cli::ExitCode`; codes other than these
@@ -126,6 +142,10 @@ pub struct ErrorJson {
 pub enum ExitCode {
     Ok,
     GeneralError,
+    /// A previous sync was interrupted and the workspace must be recovered with `fxv resume`
+    /// before anything else can run. Reserved code 98, and the error includes `interrupted-sync`
+    /// detail in `error_data`.
+    InterruptedSync,
     /// The workspace was locked by another fxv process. Reserved code 99.
     WorkspaceLocked,
     Other(i32),
@@ -136,6 +156,7 @@ impl From<i32> for ExitCode {
         match code {
             0 => ExitCode::Ok,
             1 => ExitCode::GeneralError,
+            98 => ExitCode::InterruptedSync,
             99 => ExitCode::WorkspaceLocked,
             other => ExitCode::Other(other),
         }
@@ -147,6 +168,7 @@ impl From<ExitCode> for i32 {
         match code {
             ExitCode::Ok => 0,
             ExitCode::GeneralError => 1,
+            ExitCode::InterruptedSync => 98,
             ExitCode::WorkspaceLocked => 99,
             ExitCode::Other(other) => other,
         }
@@ -214,9 +236,11 @@ pub(crate) mod test_support {
         ("urn:fxv:schema:error:v1", "error.schema.json"),
         ("urn:fxv:schema:history:v1", "history.schema.json"),
         ("urn:fxv:schema:init:v1", "init.schema.json"),
+        ("urn:fxv:schema:interrupted-sync:v1", "interrupted_sync.schema.json"),
         ("urn:fxv:schema:login:v1", "login.schema.json"),
         ("urn:fxv:schema:logout:v1", "logout.schema.json"),
         ("urn:fxv:schema:status:v1", "status.schema.json"),
+        ("urn:fxv:schema:upgrade:v1", "upgrade.schema.json"),
         ("urn:fxv:schema:user:v1", "user.schema.json"),
         ("urn:fxv:schema:workspace-sync:v1", "workspace_sync.schema.json"),
     ];
@@ -238,6 +262,21 @@ pub(crate) mod test_support {
         options
             .build(&load_schema("envelope.schema.json"))
             .expect("Failed to compile envelope schema")
+    }
+
+    /// Validates a value against one payload schema on its own, for payloads that never appear as
+    /// a top-level message: `interrupted-sync` only ever rides inside an error's `error_data`,
+    /// where the error schema types it as an opaque object.
+    pub(crate) fn assert_value_validates<T: serde::Serialize>(urn: &str, payload: &T) {
+        let file_name = SCHEMA_RESOURCES
+            .iter()
+            .find(|(registered, _)| *registered == urn)
+            .map(|(_, file_name)| *file_name)
+            .unwrap_or_else(|| panic!("no schema registered for {urn}"));
+        let validator = jsonschema::validator_for(&load_schema(file_name)).expect(file_name);
+        let json = serde_json::to_value(payload).unwrap();
+        let errors: Vec<_> = validator.iter_errors(&json).collect();
+        assert!(errors.is_empty(), "Schema validation errors for {urn}: {errors:?}");
     }
 
     /// Serializes `payload` under a complete-message envelope of `kind` and asserts it validates.
@@ -291,6 +330,7 @@ mod tests {
             message: "Workspace is locked by another process.".to_string(),
             exit_code: ExitCode::WorkspaceLocked.into(),
             backtrace: Some("0: some::frame".to_string()),
+            error_data: None,
         };
         let json = assert_payload_validates("error", &payload);
         assert_eq!(json["message"]["payload"]["exit_code"], 99);
@@ -306,6 +346,7 @@ mod tests {
             message: "boom".to_string(),
             exit_code: ExitCode::GeneralError.into(),
             backtrace: None,
+            error_data: None,
         };
         let json = serde_json::to_value(&payload).unwrap();
         assert!(json.get("backtrace").is_none());
@@ -324,6 +365,7 @@ mod tests {
                     message: "no workspace".to_string(),
                     exit_code: 1,
                     backtrace: None,
+                    error_data: None,
                 },
             },
         };

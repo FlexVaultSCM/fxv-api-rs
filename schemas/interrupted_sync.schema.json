@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:interrupted-sync:v1",
+  "title": "fxv interrupted-sync error detail",
+  "description": "Describes a sync/goto/revert/resolve that was interrupted before it finished, leaving the workspace in an inconsistent state. Only ever a detail payload, riding in an error envelope's `error_data` (with `kind` of `interrupted-sync`, alongside exit code 98) when a command refuses to run because of it. `fxv resume` recovers rather than reports, so asking what state a workspace is in is `fxv status`'s job.",
+  "type": "object",
+  "required": [
+    "state"
+  ],
+  "oneOf": [
+    {
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "operation",
+        "summary",
+        "target_revision",
+        "total_entries",
+        "completed_entries",
+        "preserved_entries",
+        "failed_entries",
+        "remaining_entries",
+        "sampled_unfinished_paths"
+      ],
+      "description": "The journal was readable, so the run can be finished with `fxv resume --continue` or undone with `fxv resume --rollback`.",
+      "properties": {
+        "state": { "const": "recoverable" },
+        "operation": {
+          "enum": ["sync", "goto", "revert", "resolve", "rollback"],
+          "description": "The command that was interrupted."
+        },
+        "summary": {
+          "type": "string",
+          "description": "A ready-to-display sentence describing what the run was doing, phrased per operation, e.g. \"Was syncing from main.11 to main.12.\""
+        },
+        "target_revision": {
+          "type": "string",
+          "description": "Revision spec the interrupted run was moving to, and where a continue finishes."
+        },
+        "source_revision": {
+          "type": "string",
+          "description": "Revision spec the workspace is still recorded as synced to, and where a rollback returns to. Absent when the interrupted run was a checkout into a workspace that had never synced."
+        },
+        "total_entries": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "File changes in the interrupted run's plan."
+        },
+        "completed_entries": { "type": "integer", "minimum": 0 },
+        "preserved_entries": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Entries whose locally-modified file was moved aside rather than overwritten."
+        },
+        "failed_entries": { "type": "integer", "minimum": 0 },
+        "remaining_entries": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Entries that never reached a terminal state, and which a continue re-drives."
+        },
+        "sampled_unfinished_paths": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "A capped sample of the unfinished paths; `remaining_entries` is the true count."
+        }
+      }
+    },
+    {
+      "additionalProperties": false,
+      "required": ["state", "journal_path", "reason"],
+      "description": "The journal survived but could not be parsed, so neither recovery operation can act on it.",
+      "properties": {
+        "state": { "const": "unreadable" },
+        "journal_path": { "type": "string" },
+        "reason": { "type": "string" }
+      }
+    }
+  ]
+}
