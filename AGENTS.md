@@ -26,27 +26,30 @@ Deliberate differences from the CLI-side structs (which are serialize-only):
 ## Layout
 
 - `src/common.rs` — `RelativePath`, a normalized `/`-separated workspace-relative path newtype with component-wise ordering (deliberate: byte order mis-sorts; see its tests). Survives from v0.1.
-- `src/v1/envelope.rs` — `OutputEnvelope<T>`/`MessageEnvelope<T>`/`ProgramMetadata`, `ErrorJson`, `ExitCode` (0/1/99 = ok/general/workspace-locked), and `parse_output<T>()` which discriminates success from `kind == "error"`. Also `#[cfg(test)] test_support` with the schema validator used by every module's tests.
+- `src/v1/envelope.rs` — `OutputEnvelope<T>`/`MessageEnvelope<T>`/`ProgramMetadata`, `ErrorJson`, `ExitCode` (0/1/98/99 = ok/general/interrupted-sync/workspace-locked), and `parse_output<T>()` which discriminates success from `kind == "error"`. Also `#[cfg(test)] test_support` with the schema validator used by every module's tests.
 - `src/v1/common.rs` — shared payload types (`CommitRefJson`, `CommitInfoJson`, `AuthorDisplayInfo`, `ImportInfoDisplay`, `FileStatusJson`, `ChangeKind`) matching `common.schema.json`'s `$defs`.
-- `src/v1/{status,history,change_info,doctor,init,login,logout,user,workspace_sync}.rs` — one module per command payload. `workspace_sync` is shared by the kinds `sync`/`goto`/`resolve`/`revert`.
+- `src/v1/{status,history,change_info,doctor,init,login,logout,upgrade,user,workspace_sync}.rs` — one module per command payload. `workspace_sync` is shared by the kinds `sync`/`goto`/`resolve`/`revert`.
+- `src/v1/interrupted_sync.rs` — the one payload that is never a top-level message. It rides in an error envelope's `error_data` at exit code 98, under its own kind and version.
 - `tests/fixtures/*.json` + `tests/fixture_test.rs` — envelopes captured from a real `fxv` binary, parsed with the typed structs.
 
 ## Wire-format facts that bite
 
 - There is no success flag; success vs. error is `message.kind == "error"` plus the process exit code. Error envelopes go to **stdout**, like successes.
+- An error payload may include `error_data`, a nested kind/version/payload triple versioned on its own timeline. Only `interrupted-sync` exists today, and only at exit code 98. `payload` stays a `serde_json::Value` here: the caller matches on `kind` before deserializing it.
 - `message.version` is the payload schema's `major.minor` version **on that `kind`'s own timeline**, not a global one — every kind is at `1.0` today. It is a string so `1.10` can't be read as `1.1`; `MessageVersion` parses it. On the CLI side each payload's `VersionedJsonMessage::version()` supplies it, and fxv-core's `cargo insta` snapshots fail if a payload's shape moves without the version moving.
 - The envelope schema's payload `oneOf` requires payload shapes to be mutually exclusive across commands — that is why `LogoutJson` always carries `was_logged_in` (else it would collide with `LoginJson`). Keep new payloads unambiguous.
 - Schemas are sealed against extra fields (`additionalProperties: false`, or `unevaluatedProperties: false` where an `allOf` composes `commitRefFields`); the drift-guard test in `history.rs` asserts an extra field fails validation. Don't weaken either.
 - A commit reference comes in two schema flavours: `commitRef` is the sealed whole-value form (history entries, status's head commits, sync's created revisions); `commitRefFields` is the deliberately unsealed form that `changeinfo` composes under `allOf` because it flattens the reference alongside its own fields. Both map to the one `CommitRefJson`.
 - `history` entries never include `commit_hash` even though `CommitRefJson` has the field — the schema rejects it there.
 - `CommitInfoJson.revision: None` means an *unparented* draft (spec `main.-.N`), distinct from revision 0.
-- Paths in payloads are always `/`-separated, normalized by the CLI on every platform.
+- Paths in payloads are `/`-separated, normalized by the CLI on every platform, with one exception noted below (`interrupted-sync`).
 - `-progress` kinds and `update_frequency_seconds`/`sequence` are reserved for future JSONL streaming; the CLI never emits them today (`json-l` is `unimplemented!()`).
 - Known upstream drift: `common.schema.json`'s `importInfo` Perforce variant requires `user_name`, which the Rust struct doesn't have. Untested upstream because no fixture produces a Perforce import. Fix belongs in fxv-core.
+- Known upstream drift: `interrupted-sync`'s `sampled_unfinished_paths` keeps the platform separator (`big\asset045.bin` on Windows) where every other payload normalizes to `/`. The CLI builds them with `to_string_lossy()` on raw `PathBuf`s. `tests/fixtures/interrupted_sync_error.json` records the behavior as captured; the fix belongs in fxv-core.
 
 ## JSON-capable commands (as of fxv-core 2026-08)
 
-`status`, `history`, `changeinfo`, `init`, `login`, `logout`, `user add/edit/deactivate`, `sync`, `goto`, `resolve`, `revert`, `doctor` (and `doctor bundle`, same `doctor` kind), plus the `error` envelope. **Not** JSON-capable: `publish`, `snapshot`, `diff`, `clone`, `branch`, `repo *`, `util *`.
+`status`, `history`, `changeinfo`, `init`, `login`, `logout`, `upgrade`, `user add/edit/deactivate`, `sync`, `goto`, `resolve`, `revert`, `doctor` (and `doctor bundle`, same `doctor` kind), plus the `error` envelope. **Not** JSON-capable: `publish`, `snapshot`, `diff`, `clone`, `branch`, `repo *`, `util *`.
 
 ## Build & style
 

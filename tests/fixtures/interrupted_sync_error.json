@@ -1,0 +1,58 @@
+{
+  "program": {
+    "name": "fxv",
+    "version": "0.9.0",
+    "executable": "C:\\Users\\dev\\AppData\\Local\\fxv\\bin\\fxv.exe",
+    "arguments": [
+      "C:\\Users\\dev\\AppData\\Local\\fxv\\bin\\fxv.exe",
+      "status",
+      "--format",
+      "json",
+      "--unattended",
+      "--no-color"
+    ],
+    "invoked_at": "2026-09-11T21:26:02.6521516Z",
+    "pid": 20376,
+    "working_directory": "C:\\Users\\dev\\fixtures\\ws"
+  },
+  "message": {
+    "kind": "error",
+    "version": "1.1",
+    "payload": {
+      "message": "A previous `fxv goto` was interrupted and this workspace is in an inconsistent state.\n  Was going from main.-.6 to main.-.8.\n  47 of 61 planned file change(s) applied, 14 remaining.\n  Run `fxv resume` to finish the command, or `fxv resume --rollback` to roll it back.",
+      "exit_code": 98,
+      "error_data": {
+        "kind": "interrupted-sync",
+        "version": "1.0",
+        "payload": {
+          "completed_entries": 47,
+          "failed_entries": 0,
+          "operation": "goto",
+          "preserved_entries": 0,
+          "remaining_entries": 14,
+          "sampled_unfinished_paths": [
+            "big\\asset045.bin",
+            "big\\asset046.bin",
+            "big\\asset047.bin",
+            "big\\asset049.bin",
+            "big\\asset050.bin",
+            "big\\asset051.bin",
+            "big\\asset052.bin",
+            "big\\asset053.bin",
+            "big\\asset054.bin",
+            "big\\asset055.bin",
+            "big\\asset056.bin",
+            "big\\asset057.bin",
+            "big\\asset058.bin",
+            "big\\asset059.bin"
+          ],
+          "source_revision": "main.-.6",
+          "state": "recoverable",
+          "summary": "Was going from main.-.6 to main.-.8.",
+          "target_revision": "main.-.8",
+          "total_entries": 61
+        }
+      }
+    }
+  }
+}
