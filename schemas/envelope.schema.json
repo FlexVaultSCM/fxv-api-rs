@@ -105,7 +105,7 @@
             { "$ref": "urn:fxv:schema:interrupted-sync:v1" },
             { "$ref": "urn:fxv:schema:login:v1" },
             { "$ref": "urn:fxv:schema:logout:v1" },
-            { "$ref": "urn:fxv:schema:status:v1" },
+            { "$ref": "urn:fxv:schema:status:v2" },
             { "$ref": "urn:fxv:schema:upgrade:v1" },
             { "$ref": "urn:fxv:schema:user:v1" },
             { "$ref": "urn:fxv:schema:workspace-sync:v1" }

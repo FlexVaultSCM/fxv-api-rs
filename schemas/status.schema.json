@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:fxv:schema:status:v1",
+  "$id": "urn:fxv:schema:status:v2",
   "title": "fxv status command payload",
   "description": "Payload schema for the status command's JSON output.",
   "type": "object",
@@ -29,6 +29,7 @@
     },
     "files": {
       "type": "array",
+      "description": "The changed files, in path order. An entry with only a conflict_state is a path in conflict that neither change axis reports, such as the directory in a file/directory clash.",
       "items": { "$ref": "urn:fxv:schema:common:v1#/$defs/fileStatus" }
     },
     "file_change_counts": {
@@ -97,7 +98,7 @@
         "total": {
           "type": "integer",
           "minimum": 0,
-          "description": "Total number of changed files."
+          "description": "Total number of entries in files, including conflicted paths that carry neither change axis."
         },
         "unpublished": {
           "type": "integer",

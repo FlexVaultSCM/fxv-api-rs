@@ -151,10 +151,25 @@ pub enum ChangeKind {
     MaybeChanged,
 }
 
-/// Stubbed conflict axis, mirroring the CLI's WIP placeholder: always absent today. Its concrete
-/// shape (likely a set of conflict flags) is deferred until conflict detection lands in the CLI.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct ConflictState {}
+/// Why a file is in conflict. Present only on entries that are themselves conflicted, so a
+/// directory that merely contains conflicts is not reported.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ConflictState {
+    pub kind: ConflictKind,
+}
+
+/// The cause of a conflict, as recovered from the entry the merge flagged and symmetrized against
+/// the published parent tree.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ConflictKind {
+    /// Both sides changed the file content.
+    Content,
+    /// One side deleted the path and the other changed it.
+    Deleted,
+    /// One side has a file where the other has a directory.
+    TypeChange,
+}
 
 #[cfg(test)]
 pub(crate) mod test_support {

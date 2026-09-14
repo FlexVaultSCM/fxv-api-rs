@@ -1,5 +1,11 @@
 //! Payload for `fxv status` (`message.kind == "status"`). Matches `schemas/status.schema.json`
-//! (`urn:fxv:schema:status:v1`).
+//! (`urn:fxv:schema:status:v2`).
+//!
+//! The CLI stamps this payload `message.version` `2.0` as of the conflict work: `conflict_state`
+//! gained a required `kind`, and `files` now reports conflicted paths that neither change axis
+//! holds, such as the directory in a file/directory clash. A `1.0` payload still deserializes:
+//! `conflict_state` was a WIP placeholder the CLI never populated at `1.0`, so the field it gained
+//! a required `kind` in is one that only ever arrives from a `2.0` payload.
 
 // == Internal crates
 use crate::v1::common::{CommitRefJson, FileStatusJson};

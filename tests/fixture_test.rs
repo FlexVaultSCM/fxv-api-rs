@@ -6,6 +6,13 @@
 //! Payloads are verbatim. The `program` block's `executable`, `arguments[0]`, and
 //! `working_directory` are rewritten to a neutral path when a fixture is added, because the CLI
 //! reports the real invocation and there is no reason to publish whoever captured it.
+//!
+//! `status_parented_draft.json`, `sync_conflict.json`, `status_conflict.json` and `resolve.json`
+//! come from one sequence, and a conflict needs no server to produce: in a local-only workspace,
+//! `user add alice` then `login alice` (publishing needs a logged-in user), publish twice to get
+//! `main.0` and `main.1`, `goto main.0`, edit one file and delete another, `snapshot` (which is
+//! `status_parented_draft.json`: a draft one revision behind its published head), then
+//! `sync main.1` to collide the two sides, and `resolve --mine alpha.txt` to clear one of them.
 
 // == Std
 use std::path::Path;
@@ -13,10 +20,12 @@ use std::path::Path;
 // == Internal crates
 use fxv_api::v1::{
     change_info::ChangeInfoOutputJson,
-    envelope::{ExitCode, OutputEnvelope, ParsedOutput, parse_output},
+    common::{ChangeKind, ConflictKind},
+    envelope::{ExitCode, MessageVersion, OutputEnvelope, ParsedOutput, parse_output},
     history::HistoryOutputJson,
     init::InitJson,
     interrupted_sync::{InterruptedOperation, InterruptedSyncJson},
+    login::LoginJson,
     logout::LogoutJson,
     status::{HeadCommitJson, StatusJson},
     workspace_sync::WorkspaceSyncJson,
@@ -49,7 +58,7 @@ fn build_envelope_validator() -> Validator {
         ("urn:fxv:schema:interrupted-sync:v1", "interrupted_sync.schema.json"),
         ("urn:fxv:schema:login:v1", "login.schema.json"),
         ("urn:fxv:schema:logout:v1", "logout.schema.json"),
-        ("urn:fxv:schema:status:v1", "status.schema.json"),
+        ("urn:fxv:schema:status:v2", "status.schema.json"),
         ("urn:fxv:schema:upgrade:v1", "upgrade.schema.json"),
         ("urn:fxv:schema:user:v1", "user.schema.json"),
         ("urn:fxv:schema:workspace-sync:v1", "workspace_sync.schema.json"),
@@ -106,6 +115,76 @@ fn test_status_fixture() {
     assert_eq!(status.file_change_counts.total, status.files.len());
 }
 
+/// A parented draft that has fallen behind its published head, which is the state the publish flow
+/// has to notice before it can publish. The only fixture carrying a `sync_status` that is not
+/// up to date.
+#[test]
+fn test_status_parented_draft_fixture() {
+    let envelope = check_success_fixture::<StatusJson>("status_parented_draft.json", "status");
+    let status = &envelope.message.payload;
+    assert_eq!(envelope.message.version, MessageVersion::new(2, 0));
+    assert_eq!(status.current_user.as_deref(), Some("alice"));
+
+    let HeadCommitJson::ParentedDraft {
+        local_snapshot,
+        published_head,
+    } = &status.head_commit
+    else {
+        panic!("the fixture was captured on a draft with a published parent");
+    };
+    assert_eq!(local_snapshot.commit.branch, "main");
+    assert_eq!(published_head.commit.revision, Some(1));
+
+    let sync = status
+        .sync_status
+        .as_ref()
+        .expect("a parented draft reports sync_status");
+    assert!(!sync.up_to_date);
+    assert_eq!(sync.revisions_behind, 1);
+    assert_eq!(sync.published_head_revision, 1);
+    assert_eq!(sync.synced_revision, Some(0));
+
+    // Behind the remote, but nothing is in conflict until the sync runs.
+    assert!(status.files.iter().all(|file| file.conflict_state.is_none()));
+}
+
+/// Captured after syncing the divergent draft above onto `main.1`: both an edit collision and a
+/// delete/edit collision, which is what pins `conflict_state.kind` to a real value rather than a
+/// presence check.
+#[test]
+fn test_status_conflict_fixture() {
+    let envelope = check_success_fixture::<StatusJson>("status_conflict.json", "status");
+    let status = &envelope.message.payload;
+    assert_eq!(envelope.message.version, MessageVersion::new(2, 0));
+
+    let alpha = status
+        .files
+        .iter()
+        .find(|file| file.path == "alpha.txt")
+        .expect("alpha.txt is in conflict");
+    assert_eq!(alpha.unpublished_state, Some(ChangeKind::Modified));
+    assert_eq!(
+        alpha.conflict_state.map(|state| state.kind),
+        Some(ConflictKind::Content)
+    );
+
+    // A conflicted deletion keeps its change axis: the file is deleted on the draft side and
+    // changed on the published side.
+    let beta = status
+        .files
+        .iter()
+        .find(|file| file.path == "beta.txt")
+        .expect("beta.txt is in conflict");
+    assert_eq!(beta.unpublished_state, Some(ChangeKind::Deleted));
+    assert_eq!(beta.conflict_state.map(|state| state.kind), Some(ConflictKind::Deleted));
+}
+
+#[test]
+fn test_login_fixture() {
+    let envelope = check_success_fixture::<LoginJson>("login.json", "login");
+    assert_eq!(envelope.message.payload.username, "alice");
+}
+
 #[test]
 fn test_history_fixture() {
     let envelope = check_success_fixture::<HistoryOutputJson>("history.json", "history");
@@ -154,6 +233,28 @@ fn test_revert_fixture() {
     let payload = &envelope.message.payload;
     assert_eq!(payload.files_updated_count, 1);
     assert!(payload.conflicted_files.is_empty());
+}
+
+/// A sync that lands on a tree it cannot merge cleanly: no file is updated, and the paths left in
+/// conflict come back under `conflicted_files` rather than as an error.
+#[test]
+fn test_sync_conflict_fixture() {
+    let envelope = check_success_fixture::<WorkspaceSyncJson>("sync_conflict.json", "sync");
+    let payload = &envelope.message.payload;
+    assert_eq!(payload.target_revision, "main.1.1");
+    assert_eq!(payload.files_updated_count, 0);
+    assert_eq!(payload.error_count, 0, "a conflict is not an apply error");
+    assert_eq!(payload.conflicted_files, vec!["alpha.txt", "beta.txt"]);
+}
+
+/// `resolve` answers with the workspace-sync payload under its own kind, and reports what is still
+/// in conflict afterwards: resolving `alpha.txt` leaves `beta.txt`.
+#[test]
+fn test_resolve_fixture() {
+    let envelope = check_success_fixture::<WorkspaceSyncJson>("resolve.json", "resolve");
+    let payload = &envelope.message.payload;
+    assert_eq!(payload.target_revision, "main.1.2");
+    assert_eq!(payload.conflicted_files, vec!["beta.txt"]);
 }
 
 /// Captured by killing a `fxv goto` partway and running `fxv status` afterwards. This is the only
