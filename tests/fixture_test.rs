@@ -116,8 +116,7 @@ fn test_status_fixture() {
 }
 
 /// A parented draft that has fallen behind its published head, which is the state the publish flow
-/// has to notice before it can publish. The only fixture carrying a `sync_status` that is not
-/// up to date.
+/// has to notice before it can publish, and what a `sync_status` that is not up to date looks like.
 #[test]
 fn test_status_parented_draft_fixture() {
     let envelope = check_success_fixture::<StatusJson>("status_parented_draft.json", "status");
