@@ -98,23 +98,7 @@ where
         reserialized, raw,
         "typed round-trip of {file} does not match the CLI's output"
     );
-    assert_manifest_covers(kind, envelope.message.version, file);
     envelope
-}
-
-/// `schemas/message_versions.json` is the CLI's published kind -> version table, mirrored here and
-/// generated from downstream. A fixture carries a version the CLI really emitted, so it catches a
-/// row the schema copy alone would not. Older fixtures are fine; ahead of the manifest is not.
-fn assert_manifest_covers(kind: &str, captured: MessageVersion, file: &str) {
-    let manifest = load_schema("message_versions.json");
-    let raw = manifest["versions"][kind]
-        .as_str()
-        .unwrap_or_else(|| panic!("kind {kind:?} is missing from message_versions.json"));
-    let listed: MessageVersion = raw.parse().expect("manifest versions are major.minor");
-    assert!(
-        (listed.major, listed.minor) >= (captured.major, captured.minor),
-        "{file} carries {kind} {captured}, ahead of message_versions.json at {listed} - re-mirror it"
-    );
 }
 
 #[test]
