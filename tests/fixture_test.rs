@@ -13,6 +13,12 @@
 //! `main.0` and `main.1`, `goto main.0`, edit one file and delete another, `snapshot` (which is
 //! `status_parented_draft.json`: a draft one revision behind its published head), then
 //! `sync main.1` to collide the two sides, and `resolve --mine alpha.txt` to clear one of them.
+//!
+//! `status_type_change_conflict.json` is the same shape of sequence with one substitution, and the
+//! direction matters: publish a path as a **file**, publish an edit to it, then on the draft side
+//! `goto` the first revision, replace that path with a **directory**, snapshot, and sync forward.
+//! Doing it the other way around (directory published, file on the draft) yields a `type_change`
+//! that still carries a change axis, and so does not produce the entry this fixture exists for.
 
 // == Std
 use std::path::Path;
@@ -112,6 +118,8 @@ fn test_status_fixture() {
     let status = &envelope.message.payload;
     assert_eq!(status.current_branch, "main");
     assert!(matches!(status.head_commit, HeadCommitJson::UnparentedDraft { .. }));
+    // Holds here because nothing in this fixture is conflicted. It is not a general invariant:
+    // see the type-change fixture, where `total` exceeds what the two change axes account for.
     assert_eq!(status.file_change_counts.total, status.files.len());
 }
 
@@ -176,6 +184,41 @@ fn test_status_conflict_fixture() {
         .expect("beta.txt is in conflict");
     assert_eq!(beta.unpublished_state, Some(ChangeKind::Deleted));
     assert_eq!(beta.conflict_state.map(|state| state.kind), Some(ConflictKind::Deleted));
+}
+
+/// The shape the version bump actually added: a conflicted path carrying **neither** change axis.
+/// A file/directory clash reports the clashing path itself that way, because no change list ever
+/// held it. `total` counts it while neither axis does, so the counts no longer add up, and a
+/// consumer enumerating the two axes drops the entry that is blocking the publish.
+#[test]
+fn test_status_type_change_conflict_fixture() {
+    let envelope = check_success_fixture::<StatusJson>("status_type_change_conflict.json", "status");
+    let status = &envelope.message.payload;
+
+    let clash = status
+        .files
+        .iter()
+        .find(|file| file.path == "gamma")
+        .expect("the clashing path is reported");
+    assert_eq!(clash.unpublished_state, None);
+    assert_eq!(clash.workspace_state, None);
+    assert_eq!(
+        clash.conflict_state.map(|state| state.kind),
+        Some(ConflictKind::TypeChange)
+    );
+
+    let counts = &status.file_change_counts;
+    assert_eq!(counts.total, status.files.len());
+    assert!(
+        counts.total > counts.unpublished + counts.workspace_need_snapshot,
+        "an entry on neither axis is still counted in total"
+    );
+    assert_eq!(status.conflicted_files().count(), 1);
+    assert_eq!(
+        status.unpublished_files().chain(status.workspace_files()).count(),
+        status.files.len() - 1,
+        "walking the two axes misses the conflict-only entry"
+    );
 }
 
 #[test]

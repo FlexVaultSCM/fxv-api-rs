@@ -3,9 +3,16 @@
 //!
 //! This payload took a major `message.version` bump for the conflict work: `conflict_state` gained
 //! a required `kind`, and `files` began reporting conflicted paths that neither change axis holds,
-//! such as the directory in a file/directory clash. A payload from before the bump still
-//! deserializes, because `conflict_state` was a placeholder the CLI never populated then, so the
-//! field that gained a required member only ever arrives populated from after it.
+//! such as the directory in a file/directory clash.
+//!
+//! **A payload from before the bump does not always deserialize.** The pre-bump CLI emitted
+//! `"conflict_state": {}` on a conflicted file, and `kind` is required here, so a status captured
+//! from an older binary *in a workspace that had conflicts* fails with `missing field \`kind\``.
+//! The failure is inside `StatusJson`, so `parse_output` rejects the whole envelope rather than
+//! just that field, and nothing in `parse_output` inspects `message.version` first. A caller that
+//! may face an older binary should gate on the version it parsed against
+//! `MessageVersion::is_compatible_with` rather than treat a parse error as a broken CLI. Without a
+//! conflict there is nothing to trip over, which is why this is easy to miss in testing.
 
 // == Internal crates
 use crate::v1::common::{CommitRefJson, FileStatusJson};
@@ -71,13 +78,21 @@ impl StatusJson {
     pub fn workspace_files(&self) -> impl Iterator<Item = &FileStatusJson> {
         self.files.iter().filter(|f| f.workspace_state.is_some())
     }
+
+    /// Files in conflict. Not a subset of the two above: an entry can carry a conflict and neither
+    /// change axis, which is how a file/directory clash reports the directory. Chaining the other
+    /// two helpers to enumerate everything `status` reports drops exactly those entries, and they
+    /// are the ones blocking a publish.
+    pub fn conflicted_files(&self) -> impl Iterator<Item = &FileStatusJson> {
+        self.files.iter().filter(|f| f.conflict_state.is_some())
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::v1::{
-        common::{ChangeKind, test_support::*},
+        common::{ChangeKind, ConflictKind, ConflictState, test_support::*},
         envelope::test_support::*,
     };
 
@@ -125,6 +140,51 @@ mod tests {
         let json = assert_payload_validates("status", &payload);
         let parsed: StatusJson = serde_json::from_value(json["message"]["payload"].clone()).unwrap();
         assert_eq!(parsed, payload);
+    }
+
+    /// The pre-bump CLI wrote `"conflict_state": {}` on a conflicted file, and `kind` is required
+    /// now, so that payload is unreadable rather than partially readable: the error comes back for
+    /// the whole payload, not the one field. Pinned because it is the upgrade hazard in this
+    /// payload, and because nothing else would notice if serde's behavior here changed.
+    #[test]
+    fn test_pre_bump_conflict_state_is_rejected_whole() {
+        let json = serde_json::json!({
+            "current_branch": "main",
+            "head_commit": { "state": "empty_branch", "branch": "main" },
+            "files": [{ "path": "alpha.txt", "unpublished_state": "modified", "conflict_state": {} }],
+            "file_change_counts": { "total": 1, "unpublished": 1, "workspace_need_snapshot": 0 }
+        });
+
+        let error = serde_json::from_value::<StatusJson>(json).expect_err("kind is required");
+        assert!(
+            error.to_string().contains("missing field `kind`"),
+            "unexpected error: {error}"
+        );
+    }
+
+    /// A conflicted path can carry neither change axis, so the counts do not have to add up and
+    /// `conflicted_files` is not a subset of the other two accessors.
+    #[test]
+    fn test_conflict_only_entry_is_reported_but_not_counted_on_either_axis() {
+        let mut payload = sample_status();
+        payload.files.push(FileStatusJson {
+            path: "gamma".to_string(),
+            unpublished_state: None,
+            workspace_state: None,
+            conflict_state: Some(ConflictState {
+                kind: ConflictKind::TypeChange,
+            }),
+            size: None,
+        });
+        payload.file_change_counts.total += 1;
+
+        assert_payload_validates("status", &payload);
+        assert_eq!(payload.conflicted_files().count(), 1);
+        assert_eq!(
+            payload.unpublished_files().count() + payload.workspace_files().count(),
+            payload.file_change_counts.total - 1,
+            "the conflict-only entry is counted in total and on neither axis"
+        );
     }
 
     #[test]
