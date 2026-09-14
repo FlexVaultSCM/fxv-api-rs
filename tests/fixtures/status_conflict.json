@@ -1,0 +1,94 @@
+{
+  "program": {
+    "name": "fxv",
+    "version": "0.9.0",
+    "executable": "C:\\Users\\dev\\AppData\\Local\\fxv\\bin\\fxv.exe",
+    "arguments": [
+      "C:\\Users\\dev\\AppData\\Local\\fxv\\bin\\fxv.exe",
+      "status",
+      "--format",
+      "json",
+      "--unattended",
+      "--no-color"
+    ],
+    "invoked_at": "2026-09-14T14:11:45.9827515Z",
+    "pid": 6652,
+    "working_directory": "C:\\Users\\dev\\fixtures\\ws"
+  },
+  "message": {
+    "kind": "status",
+    "version": "2.0",
+    "payload": {
+      "current_branch": "main",
+      "current_user": "alice",
+      "head_commit": {
+        "state": "parented_draft",
+        "local_snapshot": {
+          "commit": {
+            "branch": "main",
+            "revision": 1,
+            "type": "draft",
+            "draft_revision": 1
+          },
+          "commit_hash": "0070c2916cbd6bfa72170e6816c4a0aefb4061f593d609f08a3c97e5499aced5",
+          "timestamp_millis_since_epoch_utc": 1789395105787,
+          "author_id": "user:0",
+          "author_display_name": "Alice",
+          "author_details": {
+            "type": "FxvUser",
+            "id": 0,
+            "username": "alice",
+            "display_name": "Alice"
+          }
+        },
+        "published_head": {
+          "commit": {
+            "branch": "main",
+            "revision": 1,
+            "type": "published"
+          },
+          "commit_hash": "d14a6a764680d9baf63b8d04dd9678f3779eb47da3458c5ea4b70af24f1f371e",
+          "description": "Publish the second round",
+          "timestamp_millis_since_epoch_utc": 1789395066943,
+          "author_id": "user:0",
+          "author_display_name": "Alice",
+          "author_details": {
+            "type": "FxvUser",
+            "id": 0,
+            "username": "alice",
+            "display_name": "Alice"
+          }
+        }
+      },
+      "sync_status": {
+        "up_to_date": true,
+        "revisions_behind": 0,
+        "published_head_revision": 1,
+        "synced_revision": 1
+      },
+      "files": [
+        {
+          "path": "alpha.txt",
+          "unpublished_state": "modified",
+          "conflict_state": {
+            "kind": "content"
+          },
+          "size": 44
+        },
+        {
+          "path": "beta.txt",
+          "unpublished_state": "deleted",
+          "conflict_state": {
+            "kind": "deleted"
+          },
+          "size": 32
+        }
+      ],
+      "file_change_counts": {
+        "total": 2,
+        "unpublished": 2,
+        "workspace_need_snapshot": 0
+      }
+    }
+  }
+}

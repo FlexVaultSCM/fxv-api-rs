@@ -46,6 +46,25 @@
       ],
       "description": "The kind of change to a file. 'maybe_changed' only arises on a workspace-axis change."
     },
+    "conflictState": {
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "content",
+            "deleted",
+            "type_change"
+          ],
+          "description": "The cause of the conflict. 'content' means both sides changed the file content. 'deleted' means one side deleted the path and the other changed it. 'type_change' means one side has a file where the other has a directory."
+        }
+      },
+      "description": "Why a file is in conflict."
+    },
     "commitRef": {
       "description": "A commit reference on its own: the commitRefFields, with nothing else permitted. Use this wherever a commit reference is a whole value (a history entry, status's head commits, a created revision).",
       "allOf": [
@@ -116,8 +135,8 @@
           "description": "Change kind for a file that still needs snapshotting, or the change a sync applied."
         },
         "conflict_state": {
-          "type": "object",
-          "description": "Conflict details for the file if a conflict exists; present only when the file has a conflict."
+          "$ref": "#/$defs/conflictState",
+          "description": "Why the file is in conflict. Present only when the file is itself in conflict, so a directory that merely contains conflicts is not reported."
         },
         "size": {
           "type": ["integer", "null"],

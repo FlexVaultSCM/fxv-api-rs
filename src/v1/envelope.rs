@@ -239,7 +239,7 @@ pub(crate) mod test_support {
         ("urn:fxv:schema:interrupted-sync:v1", "interrupted_sync.schema.json"),
         ("urn:fxv:schema:login:v1", "login.schema.json"),
         ("urn:fxv:schema:logout:v1", "logout.schema.json"),
-        ("urn:fxv:schema:status:v1", "status.schema.json"),
+        ("urn:fxv:schema:status:v2", "status.schema.json"),
         ("urn:fxv:schema:upgrade:v1", "upgrade.schema.json"),
         ("urn:fxv:schema:user:v1", "user.schema.json"),
         ("urn:fxv:schema:workspace-sync:v1", "workspace_sync.schema.json"),
