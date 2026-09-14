@@ -7,18 +7,14 @@
 //! `working_directory` are rewritten to a neutral path when a fixture is added, because the CLI
 //! reports the real invocation and there is no reason to publish whoever captured it.
 //!
-//! `status_parented_draft.json`, `sync_conflict.json`, `status_conflict.json` and `resolve.json`
-//! come from one sequence, and a conflict needs no server to produce: in a local-only workspace,
-//! `user add alice` then `login alice` (publishing needs a logged-in user), publish twice to get
-//! `main.0` and `main.1`, `goto main.0`, edit one file and delete another, `snapshot` (which is
-//! `status_parented_draft.json`: a draft one revision behind its published head), then
-//! `sync main.1` to collide the two sides, and `resolve --mine alpha.txt` to clear one of them.
+//! Conflicts need no server. `status_parented_draft.json`, `sync_conflict.json`,
+//! `status_conflict.json` and `resolve.json` come from one local-only sequence: `user add alice`,
+//! `login alice` (publish needs a user), publish twice, `goto main.0`, edit one file and delete
+//! another, `snapshot` (the parented-draft fixture), `sync main.1`, `resolve --mine alpha.txt`.
 //!
-//! `status_type_change_conflict.json` is the same shape of sequence with one substitution, and the
-//! direction matters: publish a path as a **file**, publish an edit to it, then on the draft side
-//! `goto` the first revision, replace that path with a **directory**, snapshot, and sync forward.
-//! Doing it the other way around (directory published, file on the draft) yields a `type_change`
-//! that still carries a change axis, and so does not produce the entry this fixture exists for.
+//! `status_type_change_conflict.json` is the same sequence but publishes a path as a **file** and
+//! replaces it with a **directory** on the draft side. The other direction still carries a change
+//! axis, so it does not produce the axis-less entry this fixture exists for.
 
 // == Std
 use std::path::Path;
@@ -118,13 +114,11 @@ fn test_status_fixture() {
     let status = &envelope.message.payload;
     assert_eq!(status.current_branch, "main");
     assert!(matches!(status.head_commit, HeadCommitJson::UnparentedDraft { .. }));
-    // Holds here because nothing in this fixture is conflicted. It is not a general invariant:
-    // see the type-change fixture, where `total` exceeds what the two change axes account for.
+    // Holds only because nothing here is conflicted; see the type-change fixture.
     assert_eq!(status.file_change_counts.total, status.files.len());
 }
 
-/// A parented draft that has fallen behind its published head, which is the state the publish flow
-/// has to notice before it can publish, and what a `sync_status` that is not up to date looks like.
+/// A parented draft behind its published head: what the publish flow has to notice first.
 #[test]
 fn test_status_parented_draft_fixture() {
     let envelope = check_success_fixture::<StatusJson>("status_parented_draft.json", "status");
@@ -151,13 +145,12 @@ fn test_status_parented_draft_fixture() {
     assert_eq!(sync.published_head_revision, 1);
     assert_eq!(sync.synced_revision, Some(0));
 
-    // Behind the remote, but nothing is in conflict until the sync runs.
+    // Behind the remote, but nothing conflicts until the sync runs.
     assert!(status.files.iter().all(|file| file.conflict_state.is_none()));
 }
 
-/// Captured after syncing the divergent draft above onto `main.1`: both an edit collision and a
-/// delete/edit collision, which is what pins `conflict_state.kind` to a real value rather than a
-/// presence check.
+/// Syncing the divergent draft onto `main.1`: an edit and a delete/edit collision, which pins
+/// `conflict_state.kind` to a real value rather than a presence check.
 #[test]
 fn test_status_conflict_fixture() {
     let envelope = check_success_fixture::<StatusJson>("status_conflict.json", "status");
@@ -175,8 +168,7 @@ fn test_status_conflict_fixture() {
         Some(ConflictKind::Content)
     );
 
-    // A conflicted deletion keeps its change axis: the file is deleted on the draft side and
-    // changed on the published side.
+    // A conflicted deletion keeps its change axis.
     let beta = status
         .files
         .iter()
@@ -186,10 +178,8 @@ fn test_status_conflict_fixture() {
     assert_eq!(beta.conflict_state.map(|state| state.kind), Some(ConflictKind::Deleted));
 }
 
-/// The shape the version bump actually added: a conflicted path carrying **neither** change axis.
-/// A file/directory clash reports the clashing path itself that way, because no change list ever
-/// held it. `total` counts it while neither axis does, so the counts no longer add up, and a
-/// consumer enumerating the two axes drops the entry that is blocking the publish.
+/// The shape the bump added: a conflicted path on **neither** change axis, counted in `total` by
+/// neither. Walking the two axes drops it.
 #[test]
 fn test_status_type_change_conflict_fixture() {
     let envelope = check_success_fixture::<StatusJson>("status_type_change_conflict.json", "status");
@@ -277,8 +267,8 @@ fn test_revert_fixture() {
     assert!(payload.conflicted_files.is_empty());
 }
 
-/// A sync that lands on a tree it cannot merge cleanly: no file is updated, and the paths left in
-/// conflict come back under `conflicted_files` rather than as an error.
+/// A sync it cannot merge cleanly: nothing updated, conflicts under `conflicted_files` rather
+/// than as an error.
 #[test]
 fn test_sync_conflict_fixture() {
     let envelope = check_success_fixture::<WorkspaceSyncJson>("sync_conflict.json", "sync");
@@ -289,8 +279,8 @@ fn test_sync_conflict_fixture() {
     assert_eq!(payload.conflicted_files, vec!["alpha.txt", "beta.txt"]);
 }
 
-/// `resolve` answers with the workspace-sync payload under its own kind, and reports what is still
-/// in conflict afterwards: resolving `alpha.txt` leaves `beta.txt`.
+/// `resolve` answers with the workspace-sync payload under its own kind, reporting what is still
+/// conflicted: resolving `alpha.txt` leaves `beta.txt`.
 #[test]
 fn test_resolve_fixture() {
     let envelope = check_success_fixture::<WorkspaceSyncJson>("resolve.json", "resolve");
@@ -326,8 +316,8 @@ fn test_interrupted_sync_error_fixture() {
         .expect("exit 98 includes interrupted-sync detail");
     assert_eq!(data.kind, "interrupted-sync");
 
-    // The error schema types the nested payload as an opaque object, so its own schema has to be
-    // applied separately - the same way a consumer dispatches on `kind` before reading it.
+    // The nested payload is an opaque object in the error schema, so validate it separately, the
+    // way a consumer dispatches on `kind` first.
     let detail_validator = jsonschema::validator_for(&load_schema("interrupted_sync.schema.json")).unwrap();
     let detail_errors: Vec<_> = detail_validator.iter_errors(&data.payload).collect();
     assert!(
@@ -352,8 +342,8 @@ fn test_interrupted_sync_error_fixture() {
     assert_eq!(sampled_unfinished_paths.len(), remaining_entries);
     assert_eq!(source_revision.as_deref(), Some("main.-.6"));
 
-    // Known upstream drift: these paths keep the platform separator, where every other payload
-    // normalizes to '/'. The fixture was captured on Windows and records what the CLI wrote.
+    // Known upstream drift: these keep the platform separator where every other payload
+    // normalizes to '/'. Captured on Windows, recording what the CLI wrote.
     assert!(sampled_unfinished_paths.iter().all(|path| path.contains(r"\")));
 }
 

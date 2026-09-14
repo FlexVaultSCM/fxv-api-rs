@@ -1,18 +1,12 @@
 //! Payload for `fxv status` (`message.kind == "status"`). Matches `schemas/status.schema.json`
 //! (`urn:fxv:schema:status:v2`).
 //!
-//! This payload took a major `message.version` bump for the conflict work: `conflict_state` gained
-//! a required `kind`, and `files` began reporting conflicted paths that neither change axis holds,
-//! such as the directory in a file/directory clash.
+//! Major-bumped for the conflict work: `conflict_state` gained a required `kind`, and `files`
+//! began reporting conflicted paths on neither change axis (the directory in a file/dir clash).
 //!
-//! **A payload from before the bump does not always deserialize.** The pre-bump CLI emitted
-//! `"conflict_state": {}` on a conflicted file, and `kind` is required here, so a status captured
-//! from an older binary *in a workspace that had conflicts* fails with `missing field \`kind\``.
-//! The failure is inside `StatusJson`, so `parse_output` rejects the whole envelope rather than
-//! just that field, and nothing in `parse_output` inspects `message.version` first. A caller that
-//! may face an older binary should gate on the version it parsed against
-//! `MessageVersion::is_compatible_with` rather than treat a parse error as a broken CLI. Without a
-//! conflict there is nothing to trip over, which is why this is easy to miss in testing.
+//! **A pre-bump payload with a conflict does not deserialize.** The old CLI wrote
+//! `"conflict_state": {}`, so it fails `missing field \`kind\`` and takes the whole envelope with
+//! it. `parse_output` ignores `message.version`; gate on it yourself if old binaries are in play.
 
 // == Internal crates
 use crate::v1::common::{CommitRefJson, FileStatusJson};
@@ -79,10 +73,8 @@ impl StatusJson {
         self.files.iter().filter(|f| f.workspace_state.is_some())
     }
 
-    /// Files in conflict. Not a subset of the two above: an entry can carry a conflict and neither
-    /// change axis, which is how a file/directory clash reports the directory. Chaining the other
-    /// two helpers to enumerate everything `status` reports drops exactly those entries, and they
-    /// are the ones blocking a publish.
+    /// Files in conflict. Not a subset of the two above: a file/dir clash reports the clashing
+    /// path on neither axis, so walking only those two drops what is blocking the publish.
     pub fn conflicted_files(&self) -> impl Iterator<Item = &FileStatusJson> {
         self.files.iter().filter(|f| f.conflict_state.is_some())
     }
@@ -142,10 +134,8 @@ mod tests {
         assert_eq!(parsed, payload);
     }
 
-    /// The pre-bump CLI wrote `"conflict_state": {}` on a conflicted file, and `kind` is required
-    /// now, so that payload is unreadable rather than partially readable: the error comes back for
-    /// the whole payload, not the one field. Pinned because it is the upgrade hazard in this
-    /// payload, and because nothing else would notice if serde's behavior here changed.
+    /// The upgrade hazard: a pre-bump `"conflict_state": {}` fails the whole payload, not just
+    /// that field.
     #[test]
     fn test_pre_bump_conflict_state_is_rejected_whole() {
         let json = serde_json::json!({
@@ -162,8 +152,7 @@ mod tests {
         );
     }
 
-    /// A conflicted path can carry neither change axis, so the counts do not have to add up and
-    /// `conflicted_files` is not a subset of the other two accessors.
+    /// A conflicted path can sit on neither axis, so the counts need not add up.
     #[test]
     fn test_conflict_only_entry_is_reported_but_not_counted_on_either_axis() {
         let mut payload = sample_status();
