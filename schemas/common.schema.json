@@ -223,11 +223,10 @@
         },
         {
           "additionalProperties": false,
-          "required": ["type", "changelist", "user_name", "client_workspace", "depot_path"],
+          "required": ["type", "changelist", "client_workspace", "depot_path"],
           "properties": {
             "type": { "const": "Perforce" },
             "changelist": { "type": "integer", "minimum": 0 },
-            "user_name": { "type": "string" },
             "client_workspace": { "type": "string" },
             "depot_path": { "type": "string" },
             "stream": { "type": ["string", "null"] }

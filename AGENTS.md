@@ -44,7 +44,6 @@ Deliberate differences from the CLI-side structs (which are serialize-only):
 - `CommitInfoJson.revision: None` means an *unparented* draft (spec `main.-.N`), distinct from revision 0.
 - Paths in payloads are `/`-separated, normalized by the CLI on every platform, with one exception noted below (`interrupted-sync`).
 - `-progress` kinds and `update_frequency_seconds`/`sequence` are reserved for future JSONL streaming; the CLI never emits them today (`json-l` is `unimplemented!()`).
-- Known upstream drift: `common.schema.json`'s `importInfo` Perforce variant requires `user_name`, which the Rust struct doesn't have. Untested upstream because no fixture produces a Perforce import. Fix belongs in fxv-core.
 - Known upstream drift: `interrupted-sync`'s `sampled_unfinished_paths` keeps the platform separator (`big\asset045.bin` on Windows) where every other payload normalizes to `/`. The CLI builds them with `to_string_lossy()` on raw `PathBuf`s. `tests/fixtures/interrupted_sync_error.json` records the behavior as captured; the fix belongs in fxv-core.
 
 ## JSON-capable commands (as of fxv-core 2026-08)
