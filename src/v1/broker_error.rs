@@ -33,6 +33,9 @@ pub enum BrokerErrorReason {
     NetworkUnreachable,
     /// The broker no longer serves this `fxv` version. Comes with exit code 94.
     ClientUpgradeRequired,
+    /// A reason added by a newer `fxv` than this crate knows. Never serialized by `fxv`.
+    #[serde(other)]
+    Other,
 }
 
 #[cfg(test)]
@@ -73,6 +76,14 @@ mod tests {
         let data = parsed.error_data.expect("error_data should survive the round trip");
         assert_eq!(data.kind, "broker-error");
         assert_eq!(serde_json::from_value::<BrokerErrorJson>(data.payload).unwrap(), detail);
+    }
+
+    #[test]
+    fn test_unknown_reason_still_parses() {
+        let detail: BrokerErrorJson =
+            serde_json::from_value(serde_json::json!({"reason": "some_future_reason", "http_status": 503})).unwrap();
+        assert_eq!(detail.reason, BrokerErrorReason::Other);
+        assert_eq!(detail.http_status, Some(503));
     }
 
     #[test]
