@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:fetch:v1",
+  "title": "fxv fetch command payload",
+  "description": "Payload schema for the `fxv fetch` command's JSON output.",
+  "type": "object",
+  "required": [
+    "bytes_downloaded",
+    "repaired_files"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "bytes_downloaded": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Bytes the operation downloaded."
+    },
+    "repaired_files": {
+      "type": "array",
+      "description": "The files of the workspace's copy of the remote repository that `--repair` replaced or removed. Empty without `--repair`, or when nothing was damaged.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

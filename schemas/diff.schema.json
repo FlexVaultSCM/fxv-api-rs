@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:diff:v1",
+  "title": "fxv diff command payload",
+  "description": "Payload schema for the diff command's JSON output: the two revisions compared and, for every file that differs between them, how it changed and its line diff where it has one.",
+  "type": "object",
+  "required": [
+    "base_revision",
+    "target_revision",
+    "summary",
+    "files"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "base_revision": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "description": "Spec of the revision compared from (e.g. 'main.8'). Null when the target is compared against an empty tree, which happens only when no base was given and the target has no published revision it descends from."
+    },
+    "target_revision": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Spec of the revision compared to (e.g. 'main.8.2')."
+    },
+    "summary": {
+      "type": "object",
+      "description": "How many files are listed, counted once by how they changed and once by what kind of content they hold.",
+      "required": [
+        "total_changed",
+        "added",
+        "modified",
+        "deleted",
+        "text",
+        "binary",
+        "too_large"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "total_changed": { "type": "integer", "minimum": 0 },
+        "added": { "type": "integer", "minimum": 0 },
+        "modified": { "type": "integer", "minimum": 0 },
+        "deleted": { "type": "integer", "minimum": 0 },
+        "text": { "type": "integer", "minimum": 0 },
+        "binary": { "type": "integer", "minimum": 0 },
+        "too_large": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "files": {
+      "type": "array",
+      "description": "Every file that differs between the two revisions and matches the path glob. Directories are not listed.",
+      "items": { "$ref": "#/$defs/file" }
+    }
+  },
+  "$defs": {
+    "file": {
+      "type": "object",
+      "required": [
+        "path",
+        "action",
+        "content_kind"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Workspace-relative path with '/' separators."
+        },
+        "action": {
+          "type": "string",
+          "enum": ["added", "modified", "deleted"],
+          "description": "How the file changed from the base revision to the target."
+        },
+        "content_kind": {
+          "type": "string",
+          "enum": ["text", "binary", "too_large"],
+          "description": "'text' content has hunks. 'binary' content is reported as differing but not diffed. 'too_large' content is larger than the diff tool's size limit on at least one side, and was not read."
+        },
+        "old_hash": {
+          "type": "string",
+          "description": "Content address in the base revision. Absent for an added file."
+        },
+        "new_hash": {
+          "type": "string",
+          "description": "Content address in the target revision. Absent for a deleted file."
+        },
+        "old_size": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Size in bytes in the base revision, when known. Absent for an added file."
+        },
+        "new_size": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Size in bytes in the target revision, when known. Absent for a deleted file."
+        },
+        "size_limit_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The diff tool's size limit, which this file is larger than. Present only for 'too_large' content."
+        },
+        "hunks": {
+          "type": "array",
+          "description": "The line diff, as unified diff hunks. Present only for 'text' content, and empty when the two sides are identical.",
+          "items": { "$ref": "#/$defs/hunk" }
+        }
+      }
+    },
+    "hunk": {
+      "type": "object",
+      "description": "A run of changed lines with the context around them, as a unified diff's '@@ -old_start,old_lines +new_start,new_lines @@' header describes it.",
+      "required": [
+        "old_start",
+        "old_lines",
+        "new_start",
+        "new_lines",
+        "lines"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "old_start": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "1-based line number in the base revision where the hunk starts. When old_lines is 0, the line before the hunk, so an added file starts at 0."
+        },
+        "old_lines": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of context and removed lines."
+        },
+        "new_start": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "1-based line number in the target revision where the hunk starts. When new_lines is 0, the line before the hunk, so a deleted file starts at 0."
+        },
+        "new_lines": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of context and added lines."
+        },
+        "lines": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/line" }
+        }
+      }
+    },
+    "line": {
+      "type": "object",
+      "description": "One line of a hunk, without its trailing newline. Exactly one of 'text' and 'bytes_base64' is present.",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["context", "removed", "added"]
+        },
+        "text": {
+          "type": "string",
+          "description": "The line, when its bytes are valid UTF-8."
+        },
+        "bytes_base64": {
+          "type": "string",
+          "contentEncoding": "base64",
+          "description": "The line's bytes, base64-encoded (standard alphabet, padded), when they are not valid UTF-8."
+        },
+        "no_newline_at_end": {
+          "const": true,
+          "description": "Present only on a last line with no newline after it."
+        }
+      },
+      "oneOf": [
+        { "required": ["text"] },
+        { "required": ["bytes_base64"] }
+      ]
+    }
+  }
+}

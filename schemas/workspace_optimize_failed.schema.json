@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:workspace-optimize-failed:v1",
+  "title": "fxv workspace optimize failure detail",
+  "description": "What failed in an `fxv workspace optimize`. Only ever a detail payload, riding in an error envelope's `error_data` with `kind` of `workspace-optimize-failed`. A repository the optimize was asked for that it doesn't list was optimized, or needed nothing. When only some namespaces of a repository failed, each of its namespaces that isn't listed was optimized or needed nothing. A failure of a whole repository says nothing of its namespaces: some can have been merged before it failed.",
+  "type": "object",
+  "required": [
+    "failures"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "failures": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Each failure, of a namespace or of a whole repository.",
+      "items": {
+        "type": "object",
+        "required": [
+          "repository",
+          "namespace",
+          "message"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "repository": {
+            "enum": [
+              "draft",
+              "published"
+            ],
+            "description": "The repository that failed: this workspace's draft repository, or the published repository."
+          },
+          "namespace": {
+            "description": "The namespace that failed, such as 'content', or null for a failure of the whole repository, such as another process holding its optimize lock.",
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              { "type": "null" }
+            ]
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What went wrong."
+          }
+        }
+      }
+    }
+  }
+}

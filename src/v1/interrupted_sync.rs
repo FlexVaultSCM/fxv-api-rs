@@ -9,7 +9,7 @@
 // == External crates
 use serde::{Deserialize, Serialize};
 
-/// A sync, goto, revert, or resolve that stopped partway, tagged by `state`.
+/// A sync, goto, revert, resolve, rollback, branch switch or copy that stopped partway, tagged by `state`.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(tag = "state", rename_all = "snake_case")]
 pub enum InterruptedSyncJson {
@@ -31,10 +31,14 @@ pub enum InterruptedSyncJson {
         /// Entries whose locally-modified file was moved aside rather than overwritten.
         preserved_entries: usize,
         failed_entries: usize,
-        /// Entries that never reached a terminal state, and which a continue re-drives.
+        /// Entries that never reached a terminal state. A continue applies these and the failed entries.
         remaining_entries: usize,
         /// A capped sample of the unfinished paths; `remaining_entries` is the true count.
         sampled_unfinished_paths: Vec<String>,
+        /// Since 1.1. A capped sample of the paths whose change could not be applied; `failed_entries` is the
+        /// true count. Empty when parsing output from a CLI older than 1.1.
+        #[serde(default)]
+        sampled_failed_paths: Vec<FailedPath>,
     },
     /// The journal survived but could not be parsed, so neither recovery operation can act on it.
     Unreadable { journal_path: String, reason: String },
@@ -49,6 +53,38 @@ pub enum InterruptedOperation {
     Revert,
     Resolve,
     Rollback,
+    #[serde(rename = "branch switch")]
+    BranchSwitch,
+    Copy,
+}
+
+/// One path whose change could not be applied.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct FailedPath {
+    /// Workspace-relative path with '/' separators.
+    pub path: String,
+    /// Null when the journal did not record a kind.
+    pub kind: Option<FailureKind>,
+    /// Present only in the error of the command that stopped on the failure.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+}
+
+/// Why a path's change could not be applied. A minor schema version may add kinds, which parse as `Other`.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FailureKind {
+    ContentNotFound,
+    ContentReadFailed,
+    ContentMismatch,
+    WriteFailed,
+    InUse,
+    PermissionDenied,
+    DirectoryNotEmpty,
+    DirectoryAtTarget,
+    MetadataReadBackFailed,
+    #[serde(other)]
+    Other,
 }
 
 #[cfg(test)]
@@ -68,6 +104,11 @@ mod tests {
             failed_entries: 0,
             remaining_entries: 3,
             sampled_unfinished_paths: vec!["a.txt".to_string(), "dir/b.txt".to_string()],
+            sampled_failed_paths: vec![FailedPath {
+                path: "locked.bin".to_string(),
+                kind: Some(FailureKind::InUse),
+                message: Some("The file is open in another program.".to_string()),
+            }],
         }
     }
 
@@ -96,6 +137,7 @@ mod tests {
             failed_entries,
             remaining_entries,
             sampled_unfinished_paths,
+            sampled_failed_paths,
             ..
         } = sample_recoverable()
         else {
@@ -112,11 +154,39 @@ mod tests {
             failed_entries,
             remaining_entries,
             sampled_unfinished_paths,
+            sampled_failed_paths,
         };
 
         let json = serde_json::to_value(&payload).unwrap();
         assert!(json.get("source_revision").is_none());
         assert_value_validates("urn:fxv:schema:interrupted-sync:v1", &payload);
+    }
+
+    /// Output from a CLI older than 1.1 has no failed-path sample, and a kind newer than this crate reads as `Other`.
+    #[test]
+    fn test_older_and_newer_failed_path_shapes_parse() {
+        let mut json = serde_json::to_value(sample_recoverable()).unwrap();
+        json.as_object_mut().unwrap().remove("sampled_failed_paths");
+        let InterruptedSyncJson::Recoverable {
+            sampled_failed_paths, ..
+        } = serde_json::from_value(json).unwrap()
+        else {
+            unreachable!("the sample is recoverable");
+        };
+        assert!(sampled_failed_paths.is_empty());
+
+        let unknown: FailedPath = serde_json::from_str(r#"{"path":"a","kind":"disk_full"}"#).unwrap();
+        assert_eq!(unknown.kind, Some(FailureKind::Other));
+        let unrecorded: FailedPath = serde_json::from_str(r#"{"path":"a","kind":null}"#).unwrap();
+        assert_eq!(unrecorded.kind, None);
+    }
+
+    #[test]
+    fn test_branch_switch_operation_name() {
+        assert_eq!(
+            serde_json::to_value(InterruptedOperation::BranchSwitch).unwrap(),
+            "branch switch"
+        );
     }
 
     #[test]

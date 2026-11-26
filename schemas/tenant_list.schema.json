@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:tenant-list:v1",
+  "title": "fxv tenant list command payload",
+  "description": "Payload schema for the tenant list command's JSON output.",
+  "type": "object",
+  "required": ["broker", "tenants"],
+  "additionalProperties": false,
+  "properties": {
+    "broker": { "type": "string" },
+    "email": { "type": "string" },
+    "tenants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["tenant_id", "slug", "name", "role"],
+        "additionalProperties": false,
+        "properties": {
+          "tenant_id": { "type": "string" },
+          "slug": { "type": "string" },
+          "name": { "type": "string" },
+          "role": { "type": "string" }
+        }
+      }
+    }
+  }
+}

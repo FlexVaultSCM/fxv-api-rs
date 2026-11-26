@@ -14,6 +14,7 @@
 //! - `message.version` is an [`envelope::MessageVersion`] that parses the CLI's `"major.minor"` string, rather than the
 //!   CLI's write-only equivalent.
 
+pub mod broker_error;
 pub mod change_info;
 pub mod common;
 pub mod doctor;

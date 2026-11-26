@@ -128,7 +128,7 @@
         },
         "unpublished_state": {
           "$ref": "#/$defs/changeKind",
-          "description": "Change kind of the snapshotted-but-unpublished draft change."
+          "description": "Change kind of the snapshotted-but-unpublished draft change, or the draft change a publish published."
         },
         "workspace_state": {
           "$ref": "#/$defs/changeKind",

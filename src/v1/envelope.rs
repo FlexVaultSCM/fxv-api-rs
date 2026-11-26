@@ -142,6 +142,23 @@ pub struct ErrorData {
 pub enum ExitCode {
     Ok,
     GeneralError,
+    /// The command rejected its arguments. Code 2, the same code clap exits with for its own parse errors.
+    UsageError,
+    /// `fxv upgrade --check` succeeded and found an integration compatibility conflict. Code 3.
+    UpgradeCheckConflictsFound,
+    /// `fxv doctor` completed and found at least one failing check. Code 4.
+    DoctorIssuesFound,
+    /// The command succeeded but printed warnings saying what it could not do. Code 67.
+    SucceededWithWarnings,
+    /// The broker refused this `fxv` as older than the oldest version it serves, so the user should install a newer
+    /// release rather than retry. Code 94, and the error includes `broker-error` detail in `error_data`.
+    ClientUpgradeRequired,
+    /// A brokered operation needs the user to sign in. Code 95.
+    AuthRequired,
+    /// The repository is in an older format and must be upgraded with `fxv repo upgrade`. Code 96.
+    RepositoryUpgradeRequired,
+    /// The remote answered and has no repository, so one can be created with `fxv repo new`. Code 97.
+    RemoteRepositoryNotFound,
     /// A previous sync was interrupted and the workspace must be recovered with `fxv resume`
     /// before anything else can run. Reserved code 98, and the error includes `interrupted-sync`
     /// detail in `error_data`.
@@ -151,26 +168,39 @@ pub enum ExitCode {
     Other(i32),
 }
 
+const EXIT_CODES: &[(ExitCode, i32)] = &[
+    (ExitCode::Ok, 0),
+    (ExitCode::GeneralError, 1),
+    (ExitCode::UsageError, 2),
+    (ExitCode::UpgradeCheckConflictsFound, 3),
+    (ExitCode::DoctorIssuesFound, 4),
+    (ExitCode::SucceededWithWarnings, 67),
+    (ExitCode::ClientUpgradeRequired, 94),
+    (ExitCode::AuthRequired, 95),
+    (ExitCode::RepositoryUpgradeRequired, 96),
+    (ExitCode::RemoteRepositoryNotFound, 97),
+    (ExitCode::InterruptedSync, 98),
+    (ExitCode::WorkspaceLocked, 99),
+];
+
 impl From<i32> for ExitCode {
     fn from(code: i32) -> Self {
-        match code {
-            0 => ExitCode::Ok,
-            1 => ExitCode::GeneralError,
-            98 => ExitCode::InterruptedSync,
-            99 => ExitCode::WorkspaceLocked,
-            other => ExitCode::Other(other),
-        }
+        EXIT_CODES
+            .iter()
+            .find(|(_, value)| *value == code)
+            .map_or(ExitCode::Other(code), |(exit_code, _)| *exit_code)
     }
 }
 
 impl From<ExitCode> for i32 {
     fn from(code: ExitCode) -> Self {
         match code {
-            ExitCode::Ok => 0,
-            ExitCode::GeneralError => 1,
-            ExitCode::InterruptedSync => 98,
-            ExitCode::WorkspaceLocked => 99,
             ExitCode::Other(other) => other,
+            known => EXIT_CODES
+                .iter()
+                .find(|(exit_code, _)| *exit_code == known)
+                .map(|(_, value)| *value)
+                .expect("every named exit code has a value"),
         }
     }
 }
@@ -228,22 +258,28 @@ pub(crate) mod test_support {
     use jsonschema::{Resource, Validator};
     use serde_json::Value;
 
-    /// Sub-schemas registered under their URNs so `envelope.schema.json`'s `$ref`s resolve.
-    const SCHEMA_RESOURCES: &[(&str, &str)] = &[
-        ("urn:fxv:schema:changeinfo:v1", "changeinfo.schema.json"),
-        ("urn:fxv:schema:common:v1", "common.schema.json"),
-        ("urn:fxv:schema:doctor:v1", "doctor.schema.json"),
-        ("urn:fxv:schema:error:v1", "error.schema.json"),
-        ("urn:fxv:schema:history:v1", "history.schema.json"),
-        ("urn:fxv:schema:init:v1", "init.schema.json"),
-        ("urn:fxv:schema:interrupted-sync:v1", "interrupted_sync.schema.json"),
-        ("urn:fxv:schema:login:v1", "login.schema.json"),
-        ("urn:fxv:schema:logout:v1", "logout.schema.json"),
-        ("urn:fxv:schema:status:v2", "status.schema.json"),
-        ("urn:fxv:schema:upgrade:v1", "upgrade.schema.json"),
-        ("urn:fxv:schema:user:v1", "user.schema.json"),
-        ("urn:fxv:schema:workspace-sync:v1", "workspace_sync.schema.json"),
-    ];
+    /// Every payload schema in `schemas/`, keyed by its `$id`, so `envelope.schema.json`'s `$ref`s resolve.
+    fn schema_resources() -> Vec<(String, Value)> {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("schemas");
+        let mut resources = Vec::new();
+        for entry in std::fs::read_dir(&dir).expect("read schemas dir") {
+            let file_name = entry
+                .expect("read schemas entry")
+                .file_name()
+                .into_string()
+                .expect("utf-8 file name");
+            if !file_name.ends_with(".schema.json") || file_name == "envelope.schema.json" {
+                continue;
+            }
+            let schema = load_schema(&file_name);
+            let urn = schema["$id"]
+                .as_str()
+                .unwrap_or_else(|| panic!("{file_name} has no $id"))
+                .to_string();
+            resources.push((urn, schema));
+        }
+        resources
+    }
 
     fn load_schema(file_name: &str) -> Value {
         let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("schemas").join(file_name);
@@ -255,9 +291,9 @@ pub(crate) mod test_support {
     /// (any command kind) can be validated. Mirrors the validator the CLI's own tests build.
     pub(crate) fn build_envelope_validator() -> Validator {
         let mut options = jsonschema::options();
-        for (urn, file_name) in SCHEMA_RESOURCES {
-            let resource = Resource::from_contents(load_schema(file_name)).expect(file_name);
-            options.with_resource(*urn, resource);
+        for (urn, schema) in schema_resources() {
+            let resource = Resource::from_contents(schema).expect(&urn);
+            options.with_resource(&urn, resource);
         }
         options
             .build(&load_schema("envelope.schema.json"))
@@ -268,12 +304,12 @@ pub(crate) mod test_support {
     /// a top-level message: `interrupted-sync` only ever rides inside an error's `error_data`,
     /// where the error schema types it as an opaque object.
     pub(crate) fn assert_value_validates<T: serde::Serialize>(urn: &str, payload: &T) {
-        let file_name = SCHEMA_RESOURCES
-            .iter()
-            .find(|(registered, _)| *registered == urn)
-            .map(|(_, file_name)| *file_name)
+        let schema = schema_resources()
+            .into_iter()
+            .find(|(registered, _)| registered == urn)
+            .map(|(_, schema)| schema)
             .unwrap_or_else(|| panic!("no schema registered for {urn}"));
-        let validator = jsonschema::validator_for(&load_schema(file_name)).expect(file_name);
+        let validator = jsonschema::validator_for(&schema).expect(urn);
         let json = serde_json::to_value(payload).unwrap();
         let errors: Vec<_> = validator.iter_errors(&json).collect();
         assert!(errors.is_empty(), "Schema validation errors for {urn}: {errors:?}");
@@ -323,6 +359,16 @@ pub(crate) mod test_support {
 #[cfg(test)]
 mod tests {
     use super::{test_support::*, *};
+
+    #[test]
+    fn test_exit_codes_round_trip() {
+        for (exit_code, value) in EXIT_CODES {
+            assert_eq!(ExitCode::from(*value), *exit_code);
+            assert_eq!(i32::from(*exit_code), *value);
+        }
+        assert_eq!(ExitCode::from(5), ExitCode::Other(5));
+        assert_eq!(i32::from(ExitCode::Other(5)), 5);
+    }
 
     #[test]
     fn test_error_envelope_round_trip_and_schema() {

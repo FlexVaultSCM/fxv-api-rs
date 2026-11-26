@@ -18,6 +18,17 @@ pub struct UpgradeJson {
     pub critical: bool,
     /// Free-text detail about the release. Null rather than omitted when absent.
     pub message: Option<String>,
+    /// The release channel queried. `None` only when parsing output from a CLI that did not report it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub channel: Option<UpgradeChannel>,
+}
+
+/// A release channel.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum UpgradeChannel {
+    Stable,
+    Beta,
 }
 
 #[cfg(test)]
@@ -33,6 +44,7 @@ mod tests {
             latest_version: "0.9.0".to_string(),
             critical: true,
             message: Some("Fixes a sync journal corruption.".to_string()),
+            channel: Some(UpgradeChannel::Stable),
         };
         let json = assert_payload_validates("upgrade", &payload);
         let parsed: UpgradeJson = serde_json::from_value(json["message"]["payload"].clone()).unwrap();
@@ -48,6 +60,7 @@ mod tests {
             latest_version: "0.9.0".to_string(),
             critical: false,
             message: None,
+            channel: Some(UpgradeChannel::Beta),
         };
         let json = assert_payload_validates("upgrade", &payload);
         assert!(json["message"]["payload"]["message"].is_null());

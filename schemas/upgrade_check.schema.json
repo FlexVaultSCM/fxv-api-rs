@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:upgrade-check:v1",
+  "title": "fxv upgrade --check payload",
+  "description": "Payload schema for the `fxv upgrade --check` command's JSON output.",
+  "type": "object",
+  "required": [
+    "running_version",
+    "target_version",
+    "channel",
+    "compatible"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "running_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Currently running fxv version."
+    },
+    "target_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Target release version being inspected."
+    },
+    "channel": {
+      "type": "string",
+      "enum": ["stable", "beta"],
+      "description": "The release channel queried for the upgrade check."
+    },
+    "compatible": {
+      "type": "boolean",
+      "description": "True if target_version is below all registered compatibility ceilings."
+    },
+    "max_version": {
+      "type": ["string", "null"],
+      "description": "Lowest compatibility ceiling (exclusive upper bound) among conflicting integrations, if any."
+    },
+    "min_version": {
+      "type": ["string", "null"],
+      "description": "Highest minimum required version (inclusive lower bound) among conflicting integrations, if any."
+    },
+    "warning": {
+      "type": ["string", "null"],
+      "description": "Formatted compatibility warning text, if any."
+    }
+  }
+}

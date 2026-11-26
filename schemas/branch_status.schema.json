@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:branch-status:v1",
+  "title": "fxv branch retire/restore command payload",
+  "description": "Payload schema for the `fxv branch retire` and `fxv branch restore` commands' JSON output. Both report the same fields.",
+  "type": "object",
+  "required": [
+    "branch",
+    "retired",
+    "changed",
+    "published"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "branch": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The branch's displayed form: a bare name for a global branch, '<username>/<name>' for a user branch."
+    },
+    "retired": {
+      "type": "boolean",
+      "description": "The branch's status after the command: true if retired, false if active."
+    },
+    "changed": {
+      "type": "boolean",
+      "description": "False when the branch was already in the requested state, in which case nothing was written."
+    },
+    "published": {
+      "type": "boolean",
+      "description": "Whether the change reached the published ledger, and so is visible to everyone, rather than staying local to this workspace."
+    }
+  }
+}

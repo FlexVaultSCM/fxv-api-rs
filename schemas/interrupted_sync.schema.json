@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:fxv:schema:interrupted-sync:v1",
   "title": "fxv interrupted-sync error detail",
-  "description": "Describes a sync/goto/revert/resolve that was interrupted before it finished, leaving the workspace in an inconsistent state. Only ever a detail payload, riding in an error envelope's `error_data` (with `kind` of `interrupted-sync`, alongside exit code 98) when a command refuses to run because of it. `fxv resume` recovers rather than reports, so asking what state a workspace is in is `fxv status`'s job.",
+  "description": "Describes a sync, goto, revert, resolve, rollback, branch switch or copy that was interrupted before it finished, leaving the workspace in an inconsistent state. Only ever a detail payload, riding in an error envelope's `error_data` (with `kind` of `interrupted-sync`, alongside exit code 98) when a command refuses to run because of it, or when a command stops on file changes it could not apply, which leaves the same state. `fxv resume` recovers rather than reports, so asking what state a workspace is in is `fxv status`'s job.",
   "type": "object",
   "required": [
     "state"
@@ -20,14 +20,15 @@
         "preserved_entries",
         "failed_entries",
         "remaining_entries",
-        "sampled_unfinished_paths"
+        "sampled_unfinished_paths",
+        "sampled_failed_paths"
       ],
-      "description": "The journal was readable, so the run can be finished with `fxv resume --continue` or undone with `fxv resume --rollback`.",
+      "description": "The journal was readable, so the run can be finished with `fxv resume --continue`, or undone with `fxv resume --rollback` when `operation` is not `rollback` and `source_revision` is present.",
       "properties": {
         "state": { "const": "recoverable" },
         "operation": {
-          "enum": ["sync", "goto", "revert", "resolve", "rollback"],
-          "description": "The command that was interrupted."
+          "enum": ["sync", "goto", "revert", "resolve", "rollback", "branch switch", "copy"],
+          "description": "The command that did not finish: it was interrupted, or stopped on file changes it could not apply."
         },
         "summary": {
           "type": "string",
@@ -56,12 +57,44 @@
         "remaining_entries": {
           "type": "integer",
           "minimum": 0,
-          "description": "Entries that never reached a terminal state, and which a continue re-drives."
+          "description": "Entries that never reached a terminal state. A continue applies these and the failed entries."
         },
         "sampled_unfinished_paths": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "A capped sample of the unfinished paths; `remaining_entries` is the true count."
+          "description": "A capped sample of the unfinished paths, workspace-relative with '/' separators; `remaining_entries` is the true count."
+        },
+        "sampled_failed_paths": {
+          "type": "array",
+          "description": "Since 1.1. A capped sample of the paths whose change could not be applied, each with why; `failed_entries` is the true count.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "kind"],
+            "properties": {
+              "path": { "type": "string", "description": "Workspace-relative path with '/' separators." },
+              "kind": {
+                "enum": [
+                  "content_not_found",
+                  "content_read_failed",
+                  "content_mismatch",
+                  "write_failed",
+                  "in_use",
+                  "permission_denied",
+                  "directory_not_empty",
+                  "directory_at_target",
+                  "metadata_read_back_failed",
+                  "other",
+                  null
+                ],
+                "description": "The kind of failure, or null when the journal did not record one (a journal written before kinds were recorded, or one whose run was interrupted while recording it). A minor version may add kinds, so a consumer should treat a kind it does not know as `other`."
+              },
+              "message": {
+                "type": "string",
+                "description": "The failure's message. Present only in the error of the command that stopped on the failure, not when a later command reports the journal."
+              }
+            }
+          }
         }
       }
     },

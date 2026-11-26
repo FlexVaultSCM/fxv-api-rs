@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:user-list:v1",
+  "title": "fxv user list command payload",
+  "description": "Payload schema for the `fxv user list` command's JSON output.",
+  "type": "object",
+  "required": [
+    "users"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "users": {
+      "type": "array",
+      "description": "The users in the repository's user database, ordered by username then id, after the requested filters.",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "display_name",
+          "deactivated",
+          "current"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The user's numeric ID. Stable for the user's whole life, unlike 'username', which a rename changes, and the only thing that distinguishes two deactivated users who had the same username."
+          },
+          "username": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The user's username, in lowercase."
+          },
+          "display_name": {
+            "type": "string",
+            "description": "The user's display name."
+          },
+          "email": {
+            "type": "string",
+            "description": "The user's email address. Absent when the user has none."
+          },
+          "deactivated": {
+            "type": "boolean",
+            "description": "Whether the user has been deactivated, hiding them from default listings and preventing them from logging in."
+          },
+          "current": {
+            "type": "boolean",
+            "description": "Whether this workspace is logged in as this user. False for every user when nobody is logged in, or when the login no longer refers to an active user."
+          }
+        }
+      }
+    }
+  }
+}

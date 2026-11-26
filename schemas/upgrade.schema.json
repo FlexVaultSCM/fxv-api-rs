@@ -8,6 +8,7 @@
     "upgraded",
     "previous_version",
     "latest_version",
+    "channel",
     "critical"
   ],
   "additionalProperties": false,
@@ -25,6 +26,11 @@
       "type": "string",
       "minLength": 1,
       "description": "The newest available release version. When upgraded is false, this is normally equal to previous_version, but can be lower if the running binary is newer than the latest published release (e.g. a local/dev build)."
+    },
+    "channel": {
+      "type": "string",
+      "enum": ["stable", "beta"],
+      "description": "The release channel queried for the upgrade."
     },
     "critical": {
       "type": "boolean",

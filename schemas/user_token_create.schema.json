@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:user-token-create:v1",
+  "title": "fxv user token create command payload",
+  "description": "Payload schema for the `fxv user token create` command's JSON output.",
+  "type": "object",
+  "required": [
+    "token_id",
+    "name",
+    "token",
+    "read_only",
+    "created_at"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "token_id": {
+      "type": "string",
+      "description": "Unique identifier of the created token."
+    },
+    "name": {
+      "type": "string",
+      "description": "Name given to the token."
+    },
+    "token": {
+      "type": "string",
+      "description": "The plaintext personal access token."
+    },
+    "read_only": {
+      "type": "boolean",
+      "description": "Whether the token is restricted to read-only access (fetch and clone only)."
+    },
+    "created_at": {
+      "type": "integer",
+      "description": "Unix timestamp in seconds when the token was created."
+    },
+    "expires_at": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "description": "Unix timestamp in seconds when the token expires, or null if it does not expire."
+    }
+  }
+}

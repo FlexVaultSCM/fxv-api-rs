@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:branch-rename:v1",
+  "title": "fxv branch rename command payload",
+  "description": "Payload schema for the `fxv branch rename` command's JSON output. A rename changes only what the branch is called: its ID, its history and its owner are unchanged.",
+  "type": "object",
+  "required": [
+    "branch",
+    "previous_branch",
+    "changed",
+    "published"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "branch": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The branch's displayed form after the rename: a bare name for a global branch, '<username>/<name>' for a user branch."
+    },
+    "previous_branch": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The branch's displayed form before the rename, in the same notation."
+    },
+    "changed": {
+      "type": "boolean",
+      "description": "False when the branch already had this name, in which case nothing was written."
+    },
+    "published": {
+      "type": "boolean",
+      "description": "Whether the rename reached the published ledger, and so is visible to everyone, rather than staying local to this workspace."
+    }
+  }
+}

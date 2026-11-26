@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:tenant-domain-add:v1",
+  "title": "fxv tenant domain add command payload",
+  "description": "Payload schema for the `fxv tenant domain add` command's JSON output.",
+  "type": "object",
+  "required": [
+    "tenant",
+    "domain",
+    "provider",
+    "default_role",
+    "created_at"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "tenant": {
+      "type": "string",
+      "description": "The tenant slug."
+    },
+    "domain": {
+      "type": "string",
+      "description": "The verified domain name."
+    },
+    "provider": {
+      "type": "string",
+      "description": "Identity provider (google or microsoft)."
+    },
+    "default_role": {
+      "type": "string",
+      "description": "Default tenant role assigned to users authenticating via this domain."
+    },
+    "idp_tenant_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Optional IdP tenant ID."
+    },
+    "created_at": {
+      "type": "integer",
+      "description": "Unix timestamp in seconds when the domain was registered."
+    }
+  }
+}

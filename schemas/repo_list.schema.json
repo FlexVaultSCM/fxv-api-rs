@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:repo-list:v1",
+  "title": "fxv repo list command payload",
+  "description": "Payload schema for the repo list command's JSON output.",
+  "type": "object",
+  "required": ["broker", "tenant", "repos"],
+  "additionalProperties": false,
+  "properties": {
+    "broker": { "type": "string" },
+    "tenant": { "type": "string" },
+    "repos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["repo_id", "name", "role", "uri", "created_at"],
+        "additionalProperties": false,
+        "properties": {
+          "repo_id": { "type": "string" },
+          "name": { "type": "string" },
+          "role": { "type": "string" },
+          "uri": { "type": "string" },
+          "created_at": { "type": "integer" }
+        }
+      }
+    }
+  }
+}

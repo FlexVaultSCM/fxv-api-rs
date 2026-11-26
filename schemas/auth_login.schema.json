@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:auth-login:v1",
+  "title": "fxv login broker authentication payload",
+  "description": "Payload schema for broker authentication via `fxv login --format json`.",
+  "type": "object",
+  "required": [
+    "broker"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "broker": {
+      "type": "string",
+      "format": "uri",
+      "description": "The base URL of the authenticated broker."
+    },
+    "email": {
+      "type": "string",
+      "description": "The authenticated identity email address."
+    },
+    "username": {
+      "type": "string",
+      "description": "The matched repository username set for workspace attribution, if applicable."
+    }
+  }
+}
