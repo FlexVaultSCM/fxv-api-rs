@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:branch-list:v1",
+  "title": "fxv branch list command payload",
+  "description": "Payload schema for the `fxv branch list` command's JSON output.",
+  "type": "object",
+  "required": [
+    "branches"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "branches": {
+      "type": "array",
+      "description": "The branches this workspace knows about, ordered by owner then name then branch id, after the requested filters.",
+      "items": {
+        "$ref": "urn:fxv:schema:branch-info:v1"
+      }
+    }
+  }
+}

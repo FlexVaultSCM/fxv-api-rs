@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:workspace-optimize:v1",
+  "title": "fxv workspace optimize command payload",
+  "description": "Payload schema for the `fxv workspace optimize` command's JSON output, emitted when nothing failed. A failed optimize is an error envelope whose `error_data` has `kind` `workspace-optimize-failed`.",
+  "type": "object",
+  "required": [
+    "bytes_processed",
+    "draft",
+    "published"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "bytes_processed": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Bytes of store files merged, across both repositories."
+    },
+    "draft": {
+      "description": "What the optimize did to this workspace's draft repository, or null when it wasn't asked to optimize it.",
+      "oneOf": [
+        { "$ref": "#/$defs/repository" },
+        { "type": "null" }
+      ]
+    },
+    "published": {
+      "description": "What the optimize did to the published repository, or null when it wasn't asked to optimize it.",
+      "oneOf": [
+        { "$ref": "#/$defs/repository" },
+        { "type": "null" }
+      ]
+    }
+  },
+  "$defs": {
+    "repository": {
+      "type": "object",
+      "required": [
+        "bytes_processed",
+        "namespaces"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "bytes_processed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Bytes of this repository's store files merged, across every namespace."
+        },
+        "namespaces": {
+          "type": "array",
+          "description": "What the optimize did to each namespace's store files.",
+          "items": {
+            "type": "object",
+            "required": [
+              "namespace",
+              "bytes_processed",
+              "skipped"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "namespace": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The namespace, such as 'content' or 'tree'."
+              },
+              "bytes_processed": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Bytes of this namespace's store files merged."
+              },
+              "skipped": {
+                "type": "boolean",
+                "description": "True when the namespace's files needed no merge, or another optimize had already merged them."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

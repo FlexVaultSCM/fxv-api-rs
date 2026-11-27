@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:auth-logout:v1",
+  "title": "fxv logout broker payload",
+  "description": "Payload schema for broker logout via `fxv logout --format json` outside a workspace.",
+  "type": "object",
+  "required": [
+    "broker",
+    "logged_out"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "broker": {
+      "type": "string",
+      "format": "uri",
+      "description": "The base URL of the broker."
+    },
+    "logged_out": {
+      "type": "boolean",
+      "description": "Whether active credentials were found and revoked."
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:user-token-revoke:v1",
+  "title": "fxv user token revoke command payload",
+  "description": "Payload schema for the `fxv user token revoke` command's JSON output.",
+  "type": "object",
+  "required": [
+    "token_id",
+    "revoked"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "token_id": {
+      "type": "string",
+      "description": "The identifier of the revoked token."
+    },
+    "revoked": {
+      "type": "boolean",
+      "description": "Whether the token was successfully revoked."
+    }
+  }
+}

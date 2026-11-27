@@ -47,27 +47,18 @@ fn load_schema(file_name: &str) -> Value {
     serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap()
 }
 
-/// Compiles the envelope schema with every payload schema registered (same set the CLI's own
-/// tests use).
+/// Compiles the envelope schema with every payload schema in `schemas/` registered under its `$id`.
 fn build_envelope_validator() -> Validator {
-    const SCHEMA_RESOURCES: &[(&str, &str)] = &[
-        ("urn:fxv:schema:changeinfo:v1", "changeinfo.schema.json"),
-        ("urn:fxv:schema:common:v1", "common.schema.json"),
-        ("urn:fxv:schema:doctor:v1", "doctor.schema.json"),
-        ("urn:fxv:schema:error:v1", "error.schema.json"),
-        ("urn:fxv:schema:history:v1", "history.schema.json"),
-        ("urn:fxv:schema:init:v1", "init.schema.json"),
-        ("urn:fxv:schema:interrupted-sync:v1", "interrupted_sync.schema.json"),
-        ("urn:fxv:schema:login:v1", "login.schema.json"),
-        ("urn:fxv:schema:logout:v1", "logout.schema.json"),
-        ("urn:fxv:schema:status:v2", "status.schema.json"),
-        ("urn:fxv:schema:upgrade:v1", "upgrade.schema.json"),
-        ("urn:fxv:schema:user:v1", "user.schema.json"),
-        ("urn:fxv:schema:workspace-sync:v1", "workspace_sync.schema.json"),
-    ];
     let mut options = jsonschema::options();
-    for (urn, file_name) in SCHEMA_RESOURCES {
-        options.with_resource(*urn, Resource::from_contents(load_schema(file_name)).expect(file_name));
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("schemas");
+    for entry in std::fs::read_dir(&dir).unwrap() {
+        let file_name = entry.unwrap().file_name().into_string().unwrap();
+        if !file_name.ends_with(".schema.json") || file_name == "envelope.schema.json" {
+            continue;
+        }
+        let schema = load_schema(&file_name);
+        let urn = schema["$id"].as_str().unwrap().to_string();
+        options.with_resource(&urn, Resource::from_contents(schema).expect(&file_name));
     }
     options
         .build(&load_schema("envelope.schema.json"))
@@ -339,12 +330,13 @@ fn test_interrupted_sync_error_fixture() {
     };
     assert_eq!(operation, InterruptedOperation::Goto);
     assert_eq!(completed_entries + remaining_entries, total_entries);
-    assert_eq!(sampled_unfinished_paths.len(), remaining_entries);
-    assert_eq!(source_revision.as_deref(), Some("main.-.6"));
+    // The sample is capped, so it can be shorter than the true count.
+    assert!(!sampled_unfinished_paths.is_empty());
+    assert!(sampled_unfinished_paths.len() <= remaining_entries);
+    assert_eq!(source_revision.as_deref(), Some("main.0"));
 
-    // Known upstream drift: these keep the platform separator where every other payload
-    // normalizes to '/'. Captured on Windows, recording what the CLI wrote.
-    assert!(sampled_unfinished_paths.iter().all(|path| path.contains(r"\")));
+    // Captured on Windows, and '/'-separated like every other payload.
+    assert!(sampled_unfinished_paths.iter().all(|path| !path.contains('\\')));
 }
 
 #[test]

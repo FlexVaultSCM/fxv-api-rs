@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:branch-new:v1",
+  "title": "fxv branch new command payload",
+  "description": "Payload schema for the `fxv branch new` command's JSON output.",
+  "type": "object",
+  "required": [
+    "branch",
+    "branch_type",
+    "revision",
+    "switched"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "branch": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The branch's displayed form: a bare name for a global branch, '<username>/<name>' for a user branch."
+    },
+    "branch_type": {
+      "type": "string",
+      "enum": [
+        "global",
+        "user"
+      ],
+      "description": "Whether the branch is owned by a user or lives in the global namespace."
+    },
+    "revision": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The revision spec of the draft revision created for the branch."
+    },
+    "source_revision": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The revision the branch was started from. Absent for a branch created with --from none, which has no parent."
+    },
+    "switched": {
+      "type": "boolean",
+      "description": "Whether the workspace was moved onto the new branch."
+    }
+  }
+}

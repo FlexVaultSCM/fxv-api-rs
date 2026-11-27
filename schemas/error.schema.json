@@ -18,7 +18,7 @@
     "exit_code": {
       "type": "integer",
       "minimum": 1,
-      "description": "The process exit code the CLI returns for this failure. 1 is a general error; 98 means a previous sync was interrupted and the workspace must be recovered with `fxv resume`; 99 means the workspace was locked by another process."
+      "description": "The process exit code the CLI returns for this failure. 1 is a general error; 2 means the command rejected its arguments; 96 means the repository is in an older format and must be upgraded with `fxv repo upgrade`; 97 means the remote endpoint answered and has no repository, so one can be created there with `fxv repo new` (a remote that could not be reached or read is a general error); 98 means a sync was interrupted, or stopped on file changes it could not apply, and the workspace must be recovered with `fxv resume`; 99 means the workspace was locked by another process."
     },
     "backtrace": {
       "type": "string",
@@ -44,7 +44,7 @@
         "kind": {
           "type": "string",
           "minLength": 1,
-          "description": "Identifies the payload's shape, and therefore which schema describes it. `interrupted-sync` is described by urn:fxv:schema:interrupted-sync:v1."
+          "description": "Identifies the payload's shape, and therefore which schema describes it. `interrupted-sync` is described by urn:fxv:schema:interrupted-sync:v1, and `workspace-optimize-failed` by urn:fxv:schema:workspace-optimize-failed:v1."
         },
         "version": {
           "type": "string",

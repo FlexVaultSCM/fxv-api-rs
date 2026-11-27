@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:branch-info:v1",
+  "title": "fxv branch info command payload",
+  "description": "One branch as a workspace sees it. Used as the `fxv branch info` payload, and as the element type of `fxv branch list`'s array.",
+  "type": "object",
+  "required": [
+    "branch",
+    "branch_unique_id",
+    "branch_type",
+    "local_only",
+    "retired"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "branch": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The branch's displayed form: a bare name for a global branch, '<username>/<name>' for a user branch."
+    },
+    "branch_unique_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[0-9a-f]{16}$",
+      "description": "The branch's unique ID as bare hex. Stable for the branch's whole life, unlike 'branch', which a rename changes, and the only thing that distinguishes two branches sharing a name. For matching payloads to each other; no command accepts it as an argument."
+    },
+    "branch_type": {
+      "type": "string",
+      "enum": [
+        "global",
+        "user"
+      ],
+      "description": "Whether the branch is owned by a user or lives in the global namespace."
+    },
+    "owner": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The owning user's current username. Absent for a global branch, which is owned by nobody."
+    },
+    "published_head": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The branch's published head revision. Absent for a branch that has never been published."
+    },
+    "draft_head": {
+      "type": "string",
+      "minLength": 1,
+      "description": "This workspace's draft head revision on the branch. Absent when it holds no local drafts on it."
+    },
+    "local_only": {
+      "type": "boolean",
+      "description": "Whether the branch exists only in this workspace, so nobody else can see it or sync to it yet."
+    },
+    "retired": {
+      "type": "boolean",
+      "description": "Whether the branch has been retired, hiding it from default listings."
+    }
+  }
+}

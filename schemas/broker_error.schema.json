@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:broker-error:v1",
+  "title": "fxv broker error detail payload",
+  "description": "Structured detail carried in error_data when a broker operation fails.",
+  "type": "object",
+  "required": ["reason"],
+  "additionalProperties": false,
+  "properties": {
+    "reason": {
+      "type": "string",
+      "enum": [
+        "not_authenticated",
+        "token_expired",
+        "forbidden",
+        "quota_exceeded",
+        "network_unreachable",
+        "client_upgrade_required"
+      ]
+    },
+    "broker": { "type": "string" },
+    "tenant": { "type": "string" },
+    "repo": { "type": "string" },
+    "http_status": { "type": "integer", "minimum": 100, "maximum": 599 }
+  }
+}

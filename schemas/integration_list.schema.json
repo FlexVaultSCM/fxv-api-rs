@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:integration-list:v1",
+  "title": "fxv integration list payload",
+  "description": "Payload schema for the `fxv integration list` command's JSON output.",
+  "type": "object",
+  "required": [
+    "integrations"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "integrations": {
+      "type": "array",
+      "description": "List of registered integrations.",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "workspace",
+          "max_version"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Unique integration identifier."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Human-readable integration name."
+          },
+          "plugin_version": {
+            "type": "string",
+            "description": "Optional version of the plugin itself."
+          },
+          "workspace": {
+            "type": "string",
+            "description": "Associated workspace path."
+          },
+          "max_version": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Exclusive compatibility ceiling version."
+          },
+          "min_version": {
+            "type": "string",
+            "description": "Optional inclusive minimum supported fxv version."
+          }
+        }
+      }
+    }
+  }
+}

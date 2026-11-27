@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:publish:v1",
+  "title": "fxv publish command payload",
+  "description": "Payload schema for the `fxv publish` command's JSON output.",
+  "type": "object",
+  "required": [
+    "published_revision",
+    "files_published_count",
+    "files_published",
+    "bytes_copied",
+    "bytes_new"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "published_revision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "description": "The revision the publish created, or null when the published branch already held the draft's tree, so there was nothing to publish."
+    },
+    "files_published_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of files the published revision adds, changes and deletes."
+    },
+    "files_published": {
+      "type": "array",
+      "description": "The files the published revision adds, changes and deletes, each with the draft change it published on the unpublished axis.",
+      "items": {
+        "$ref": "urn:fxv:schema:common:v1#/$defs/fileStatus"
+      }
+    },
+    "bytes_copied": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "The size of the content the published revision takes from the draft."
+    },
+    "bytes_new": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "The bytes the publish staged: compressed, and only content the published repository did not already hold."
+    }
+  }
+}

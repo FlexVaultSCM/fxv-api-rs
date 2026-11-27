@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:fxv:schema:workspace-sync:v1",
   "title": "fxv workspace-sync command payload",
-  "description": "Shared payload schema for the workspace-sync family of commands (goto, revert, sync): the outcome of moving the workspace to a target tree.",
+  "description": "Shared payload schema for the workspace-sync family of commands (goto, sync, revert, resolve, resume, branch switch, copy, doctor reset-sync): the outcome of moving the workspace to a target tree.",
   "type": "object",
   "required": [
     "target_revision",

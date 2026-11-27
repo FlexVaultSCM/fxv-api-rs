@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:tenant-domain-remove:v1",
+  "title": "fxv tenant domain remove command payload",
+  "description": "Payload schema for the `fxv tenant domain remove` command's JSON output.",
+  "type": "object",
+  "required": [
+    "tenant",
+    "domain",
+    "removed"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "tenant": {
+      "type": "string",
+      "description": "The tenant slug."
+    },
+    "domain": {
+      "type": "string",
+      "description": "The removed domain name."
+    },
+    "removed": {
+      "type": "boolean",
+      "description": "Whether the domain was successfully removed."
+    }
+  }
+}

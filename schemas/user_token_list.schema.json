@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:user-token-list:v1",
+  "title": "fxv user token list command payload",
+  "description": "Payload schema for the `fxv user token list` command's JSON output.",
+  "type": "object",
+  "required": [
+    "username",
+    "tokens"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "username": {
+      "type": "string",
+      "description": "Username or member identity whose tokens are listed."
+    },
+    "tokens": {
+      "type": "array",
+      "description": "List of active personal access tokens.",
+      "items": {
+        "type": "object",
+        "required": [
+          "token_id",
+          "name",
+          "read_only",
+          "created_at"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "token_id": {
+            "type": "string",
+            "description": "Unique identifier of the token."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name given to the token."
+          },
+          "read_only": {
+            "type": "boolean",
+            "description": "Whether the token is restricted to read-only access (fetch and clone only)."
+          },
+          "created_at": {
+            "type": "integer",
+            "description": "Unix timestamp in seconds when the token was created."
+          },
+          "expires_at": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Unix timestamp in seconds when the token expires, or null if it does not expire."
+          }
+        }
+      }
+    }
+  }
+}

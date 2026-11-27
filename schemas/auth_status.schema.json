@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fxv:schema:auth-status:v1",
+  "title": "fxv login --status command payload",
+  "description": "Payload schema for `fxv login --status --format json`.",
+  "type": "object",
+  "required": [
+    "authenticated",
+    "broker"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "authenticated": {
+      "type": "boolean",
+      "description": "Whether active, valid credentials exist for the broker."
+    },
+    "broker": {
+      "type": "string",
+      "format": "uri",
+      "description": "The base URL of the broker."
+    },
+    "identity_id": {
+      "type": "string",
+      "description": "The identity ID of the authenticated user."
+    },
+    "email": {
+      "type": "string",
+      "description": "The email address of the authenticated user."
+    },
+    "is_pat": {
+      "type": "boolean",
+      "description": "Whether the token is a Personal Access Token."
+    },
+    "source": {
+      "type": "string",
+      "description": "The source of the credential."
+    }
+  }
+}

@@ -14,7 +14,11 @@
   "properties": {
     "current_branch": {
       "type": "string",
-      "description": "Name of the workspace's current branch."
+      "description": "The workspace's current branch as displayed, including the owner prefix for a user branch."
+    },
+    "branch_name_taken": {
+      "type": "boolean",
+      "description": "Present and true when a published branch already holds the current branch's name, which blocks publishing and syncing it until `fxv branch rename --local` gives it a free name. Absent otherwise."
     },
     "current_user": {
       "type": "string",
@@ -34,6 +38,14 @@
     },
     "file_change_counts": {
       "$ref": "#/$defs/fileChangeCounts"
+    },
+    "remote": {
+      "$ref": "#/$defs/remote",
+      "description": "Remote storage configuration for this workspace."
+    },
+    "auth": {
+      "$ref": "#/$defs/auth",
+      "description": "Broker authentication state for this workspace, if applicable."
     }
   },
   "$defs": {
@@ -48,7 +60,11 @@
           "required": ["state", "branch"],
           "properties": {
             "state": { "const": "empty_branch" },
-            "branch": { "type": "string" }
+            "branch": { "type": "string" },
+            "published_head": {
+              "description": "Present when the branch has published revisions the workspace has never synced, as right after `fxv init`. Absent when the branch has no commits.",
+              "$ref": "urn:fxv:schema:common:v1#/$defs/commitRef"
+            }
           }
         },
         {
@@ -110,6 +126,34 @@
           "minimum": 0,
           "description": "Number of entries carrying workspace_state."
         }
+      }
+    },
+    "remote": {
+      "type": "object",
+      "required": ["mode"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["local", "s3", "broker"]
+        },
+        "uri": { "type": "string" },
+        "broker": { "type": "string" },
+        "tenant": { "type": "string" },
+        "repo": { "type": "string" }
+      }
+    },
+    "auth": {
+      "type": "object",
+      "required": ["required", "state"],
+      "additionalProperties": false,
+      "properties": {
+        "required": { "type": "boolean" },
+        "state": {
+          "type": "string",
+          "enum": ["authenticated", "unverified", "missing_token", "expired", "forbidden", "offline"]
+        },
+        "source": { "type": "string" }
       }
     }
   }
